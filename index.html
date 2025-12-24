@@ -208,6 +208,18 @@
       })
 
       var rubikShape
+      var baseRubikShape = {
+        vertices: [],
+        uvs: [],
+        normals: [],
+        normalVecs: [],
+        normalAssocs: [],
+        ustate: [],
+        vstate: [],
+        nstate: [],
+        nvstate: [],
+        shapeData: []
+      }
       var geoOptions = {
         shapeType: 'obj',
         url: 'https://srmcgann.github.io/objs/rubik/rubik.obj',
@@ -217,6 +229,9 @@
       }
       await Coordinates.LoadGeometry(renderer, geoOptions).then(async (geometry) => {
         Coordinates.ShapeFromArray(geometry, pointArray).then(async res => {
+          Object.keys(baseRubikShape).forEach(key => {
+             baseRubikShape[key] = structuredClone(res[key])
+          })
           rubikShape = res
           shapes.push(res)
           await shader.ConnectGeometry(res)
@@ -244,6 +259,12 @@
       var shuffleTTL = 0
       const Shuffle = () => {
         if(confirm('\n\nShuffle?\n\nare you sure?')){
+          solving = false
+          solvingDataset = {
+            solvingStage: 0,
+            faces: '',
+          }
+          
           setTimeout(()=>{
             if(shuffleTTL < renderer.t && !solving) {
               shuffleTTL = renderer.t + 3
@@ -269,7 +290,7 @@
           solving = true
           solvingDataset = {
             solvingStage: 0,
-            workingFace: '',
+            faces: '',
           }
         }
       }
@@ -484,17 +505,18 @@
       const RotateFace = dir => {
         if(shuffleTTL < renderer.t &&
            !numlock && (phase == 0 || phase == 1)){
-          Coordinates.ApplyShapeData(rubikShape)
-          curMove = [ curCursorView,
-                     curCursorView == 'top' ||
-                     curCursorView == 'bottom' ? -dir : dir]
-          phase = 0
+          setTimeout(() => {
+            Coordinates.ApplyShapeData(rubikShape)
+            curMove = [ curCursorView,
+                       curCursorView == 'top' ||
+                       curCursorView == 'bottom' ? -dir : dir]
+            phase = 0
+          }, 0)
         }
       }
 
       const FaceToBottom = () => {
         if(numlock) return
-
         Coordinates.ApplyShapeData(rubikShape)
         const DoRotation = (theta, axis) => {
           a = axis == 'roll' ? 'x' : 'y'
@@ -511,6 +533,18 @@
             subShape[a] = S(p) * d - subShape['o'+a]
             subShape[b] = C(p) * d - subShape['o'+b]
           })
+          
+          faceAssocs.map((assoc, aidx) => {
+            var a = axis == 'roll' ? 'x' : 'y'
+            var b = axis == 'roll' ? 'y' : 'z'
+            var a_ = assoc.pos[a]
+            var b_ = assoc.pos[b]
+            p = Math.atan2(a_, b_) - theta
+            d = Math.hypot(a_, b_)
+            faceAssocs[aidx].pos[a] = Math.round(S(p) * d)
+            faceAssocs[aidx].pos[b] = Math.round(C(p) * d)
+          })
+          
           identities.map((face, fidx) => {
             face.map((id, iIdx) => {
               var a_ = id[a]
@@ -521,32 +555,6 @@
               id[b] = C(p) * d
             })
           })
-
-          /*
-          clickTargets.map(ct=>{
-            ct[0].map(q=>{
-              var el = q
-              console.log(el)
-              var a__, b__
-              switch(a){
-                case 'x': a__ == 0; break
-                case 'y': a__ == 1; break
-                case 'z': a__ == 2; break
-              }
-              switch(b){
-                case 'x': b__ == 0; break
-                case 'y': b__ == 1; break
-                case 'z': b__ == 2; break
-              }
-              var a_ = el[a__]
-              var b_ = el[b__]
-              p = Math.atan2(a_, b_) + theta
-              d = Math.hypot(a_, b_)
-              el[a__] = S(p) * d
-              el[b__] = C(p) * d
-            })
-          })
-          */
         }
         var a, b, theta
         switch(curCursorView){
@@ -568,6 +576,7 @@
             break
         }
         curCursorView = 'bottom'
+        
       }
 
       var c = Coordinates.Overlay.c
@@ -605,7 +614,7 @@
                 keyTimers[key] = renderer.t + keyTimerInterval
                 break
               case 66:  // b
-                //FaceToBottom()
+                FaceToBottom()
                 keyTimers[key] = renderer.t + keyTimerInterval
                 break
               case 82:  // r
@@ -746,19 +755,18 @@
       }
       
       const FaceIsVisible = face => {
-        var el = clickTargets.filter(v=>v[2]&&v[1]==face)[0][0]
-        x = (el[0][0] + el[1][0] + el[2][0] + el[3][0]) /4
-        y = (el[0][1] + el[1][1] + el[2][1] + el[3][1]) /4
-        z = (el[0][2] + el[1][2] + el[2][2] + el[3][2]) /4
+        x = faceAssocs[face].pos.x
+        y = -faceAssocs[face].pos.y
+        z = faceAssocs[face].pos.z
+        
         p = Math.atan2(x, z) + rubikShape.yaw
         d = Math.hypot(x, z)
-        //x = S(p) * d
         z = C(p) * d
         p = Math.atan2(y, z) + rubikShape.pitch
         d = Math.hypot(y, z)
-        //y = S(p) * d
         z = C(p) * d
-        return z < -.66
+        
+        return z < -.2
       }
 
       c.tabIndex = 0
@@ -779,6 +787,7 @@
         e.preventDefault()
       }
 
+      
       window.onmousedown = e => {
 
         mouseButtonHasBeenClicked = true
@@ -787,6 +796,7 @@
           my = renderer.mouseY
           mb = true
         }
+        if(e.which == 1) clickedWhileHighlighted = highlighted
         c.focus()
       }
       window.onmousemove = e => {
@@ -812,76 +822,6 @@
         keyTimers[e.keyCode] = 0
       }
 
-      var curView, curCursorView
-
-      var camPitch, camYaw, cursorYaw, cursorPitch, tracking = .1
-      var keyHasBeenPressed, numlock, peekView, doOscillate
-      var orbitYaw, orbitPitch, mouseButtonHasBeenClicked
-      var enterKeyHasBeenPressed, highlighted, clicked, idc
-      var oph
-
-      const Init = (reset = false) => {
-
-        if(!reset){
-          //Shuffle()
-          ChooseMove()
-          clicked = false
-          solving = false
-          keys = Array(256).fill(false)
-          keyTimers = Array(256).fill(0)
-          keyTimerInterval = .5
-          keyHasBeenPressed = false
-          mouseButtonHasBeenClicked = false
-          enterKeyHasBeenPressed = false
-          curCursorView = 'front'
-          phase = 1
-          highlighted = false
-        }
-
-        numlock = true
-        orbitYaw = 0
-        orbitPitch = 0
-        doOscillate = false
-        peekView = ''
-        camPitch = 0
-        camYaw = 0
-        cursorPitch = 0
-        cursorYaw = 0
-        curView = 'front'
-      }
-      Init()
-
-      var tgtOris = [
-        {
-          name: 'back',
-          yaw: Math.PI, pitch: 0,
-          cursorYaw: Math.PI, cursorPitch: 0,
-        },
-        {
-          name: 'top',
-          yaw: 0, pitch: -Math.PI/2,
-          cursorYaw: 0, cursorPitch: -Math.PI/2,
-        },
-        { name: 'right',
-         yaw: Math.PI/2, pitch: 0,
-         cursorYaw: Math.PI/2, cursorPitch: 0,
-        },
-        {
-          name: 'front',
-          yaw: 0, pitch: 0,
-          cursorYaw: 0, cursorPitch: 0
-        },
-        {
-          name: 'bottom',
-          yaw: 0, pitch: Math.PI/2,
-          cursorYaw: 0, cursorPitch: Math.PI/2,
-        },
-        {
-          name: 'left',
-          yaw: -Math.PI/2, pitch: 0,
-          cursorYaw: -Math.PI/2, cursorPitch: 0,
-        },
-      ]
 
       var ctLookup = [
         [ 4, 4, 2, 5, 0, 2, 5, 1, 1 ],
@@ -892,47 +832,181 @@
         [ 1, 0, 0, 1, 0, 4, 3, 3, 4 ],
       ]
 
-      var idFaceLookup = [
-        'yellow',
-        'red',
-        'blue',
-        'white',
-        'orange',
-        'green',
-      ]
-      
 
-      var clickTargets = []
-      var identities = Array(6).fill().map((v, i)=>Array(9).fill(0))
-      for(var i = 0; i < 6; i++){
-        var a = [], b=[], l, ls = 4.2
-        for(var j = 0; j < 4; j++){
-          a = [S(p=Math.PI*2/4*j+Math.PI/4)*ls/1.5, C(p)*ls/1.5, ls*2**.5/2]
-          b.push([a[(i+0)%3]*(l=i<3?1:-1), a[(i+1)%3]*l, a[(i+2)%3]*l])
+      var curView, curCursorView
+      var camPitch, camYaw, cursorYaw, cursorPitch, tracking = .1
+      var keyHasBeenPressed, numlock, peekView, doOscillate
+      var orbitYaw, orbitPitch, mouseButtonHasBeenClicked
+      var enterKeyHasBeenPressed, highlighted, clicked, idc
+      var oph, clickedWhileHighlighted, faceAssocs
+      var clickTargets, identities, solvingDataset
+
+      const Init = (reset = false) => {
+
+        if(!reset){
+          //Shuffle()
+          ChooseMove()
+          clicked = false
+          keys = Array(256).fill(false)
+          keyTimers = Array(256).fill(0)
+          keyTimerInterval = .5
+          keyHasBeenPressed = false
+          mouseButtonHasBeenClicked = false
+          enterKeyHasBeenPressed = false
+          curCursorView = 'front'
+          phase = 1
+          highlighted = false
+          clickedWhileHighlighted = false
         }
-        clickTargets.push([b, i, 1])
-        for(var k = 0; k < 9; k++){
-          var tx = ((k%3)-3/2+.5) * ls/2.1
-          var ty = ((k/3|0)-3/2+.5) * ls/2.1
-          
-          a = [tx, ty, ls*2**.5/2]
-          identities[i][k] = {
-            x: a[(i+0)%3]*(l=i<3?1:-1),
-            y: a[(i+1)%3]*l,
-            z: a[(i+2)%3]*l,
-            id: i,
-            posId: i,
+
+        numlock = true
+        solving = false
+        orbitYaw = 0
+        orbitPitch = 0
+        doOscillate = false
+        peekView = ''
+        camPitch = 0
+        camYaw = 0
+        cursorPitch = 0
+        cursorYaw = 0
+        curView = 'front'
+
+
+        faceAssocs = [
+          {
+            color: 'yellow',
+            opos: {x:0, y:0, z:1},
+            pos: {x:0, y:0, z:1},
+            oid: 0
+          },
+          {
+            color: 'red',
+            opos: {x:0, y: -1, z: 0},
+            pos: {x:0, y: -1, z: 0},
+            oid: 1
+          },
+          {
+            color: 'blue',
+            opos: {x:1, y: 0, z: 0},
+            pos: {x:1, y: 0, z: 0},
+            oid: 2},
+          {
+            color: 'white',
+            opos: {x:0, y: 0, z: -1},
+            pos: {x:0, y: 0, z: -1},
+            oid: 3},
+          {
+            color: 'orange',
+            opos: {x:0, y: 1, z: 0},
+            pos: {x:0, y: 1, z: 0},
+            oid: 4},
+          {
+            color: 'green',
+            opos: {x:-1, y: 0, z: 0},
+            pos: {x:-1, y: 0, z: 0},
+            oid: 5},
+        ]
+
+        clickTargets = []
+        identities = Array(6).fill().map((v, i)=>Array(9).fill(0))
+        for(var i = 0; i < 6; i++){
+          var a = [], b=[], l, ls = 4.2
+          for(var j = 0; j < 4; j++){
+            a = [S(p=Math.PI*2/4*j+Math.PI/4)*ls/1.5, C(p)*ls/1.5, ls*2**.5/2]
+            b.push([a[(i+0)%3]*(l=i<3?1:-1), a[(i+1)%3]*l, a[(i+2)%3]*l])
           }
-          
-          if(k!=4){
-            b = []
-            for(var j = 0; j < 4; j++){
-              a = [S(p=Math.PI*2/4*j+Math.PI/4)*ls/2.95+tx, C(p)*ls/2.95+ty, ls*2**.5/2]
-              b.push([a[(i+0)%3]*(l=i<3?1:-1), a[(i+1)%3]*l, a[(i+2)%3]*l])
+          clickTargets.push([b, i, 1])
+          for(var k = 0; k < 9; k++){
+            var tx = ((k%3)-3/2+.5) * ls/2.1
+            var ty = ((k/3|0)-3/2+.5) * ls/2.1
+            
+            a = [tx, ty, ls*2**.5/2]
+            identities[i][k] = {
+              x: a[(i+0)%3]*(l=i<3?1:-1),
+              y: a[(i+1)%3]*l,
+              z: a[(i+2)%3]*l,
+              ox: a[(i+0)%3]*(l=i<3?1:-1),
+              oy: a[(i+1)%3]*l,
+              oz: a[(i+2)%3]*l,
+              id: i,
+              posId: i,
             }
-            clickTargets.push([b, ctLookup[i][k], 0])
+            
+            if(k!=4){
+              b = []
+              for(var j = 0; j < 4; j++){
+                a = [S(p=Math.PI*2/4*j+Math.PI/4)*ls/2.95+tx, C(p)*ls/2.95+ty, ls*2**.5/2]
+                b.push([a[(i+0)%3]*(l=i<3?1:-1), a[(i+1)%3]*l, a[(i+2)%3]*l])
+              }
+              clickTargets.push([b, ctLookup[i][k], 0])
+            }
           }
         }
+
+      }
+      Init()
+      
+      const ResetCube = () => {
+        if(confirm('\n\nreset whole cube?\n\nAre you sure?')) {
+          Coordinates.ApplyShapeData(rubikShape)
+          rubikShape.shapeData = structuredClone(baseRubikShape.shapeData)
+          Object.keys(baseRubikShape).forEach(key => {
+             rubikShape[key] = structuredClone(baseRubikShape[key])
+          })
+          Init()
+          setTimeout(()=>{
+            Coordinates.ApplyShapeData(rubikShape)
+          }, 0)
+        }
+      }
+      
+      var tgtOris = [
+        {
+          oid: 0,
+          name: 'back',
+          position: [0, 0, 1],
+          yaw: Math.PI, pitch: 0,
+          cursorYaw: Math.PI, cursorPitch: 0,
+        },
+        {
+          oid: 1,
+          name: 'top',
+          position: [0, -1, 0],
+          yaw: 0, pitch: -Math.PI/2,
+          cursorYaw: 0, cursorPitch: -Math.PI/2,
+        },
+        {
+          oid: 2,
+          name: 'right',
+          position: [1, 0, 0],
+         yaw: Math.PI/2, pitch: 0,
+         cursorYaw: Math.PI/2, cursorPitch: 0,
+        },
+        {
+          oid: 3,
+          name: 'front',
+          position: [0, 0, -1],
+          yaw: 0, pitch: 0,
+          cursorYaw: 0, cursorPitch: 0
+        },
+        {
+          oid: 4,
+          name: 'bottom',
+          position: [0, 1, 0],
+          yaw: 0, pitch: Math.PI/2,
+          cursorYaw: 0, cursorPitch: Math.PI/2,
+        },
+        {
+          oid: 5,
+          name: 'left',
+          position: [-1, 0, 0],
+          yaw: -Math.PI/2, pitch: 0,
+          cursorYaw: -Math.PI/2, cursorPitch: 0,
+        },
+      ]
+
+      const IdFaceLookup = idx => {
+        return faceAssocs[idx].color
       }
 
       var offsetz = 0
@@ -972,7 +1046,7 @@
           buttonColor: '#028',
           highlightColor: '#804',
           script: 'FaceToBottom()',
-          enabled: false,
+          enabled: true,
         },
         {
           name: 'shuffle',
@@ -997,6 +1071,17 @@
           enabled: true,
         },
         {
+          name: 'reset whole cube',
+          style: 'one click',
+          text: 'reset whole cube',
+          clickState: false,
+          fontColor: '#f44',
+          buttonColor: '#400',
+          highlightColor: '#800',
+          script: 'ResetCube()',
+          enabled: true,
+        },
+        {
           name: 'solve cube',
           style: 'one click',
           text: 'solve cube',
@@ -1005,7 +1090,7 @@
           buttonColor: '#804',
           highlightColor: '#f08',
           script: 'SolveCube()',
-          enabled: false,
+          enabled: true,
         },
         /*
         {
@@ -1053,9 +1138,65 @@
         if(solving){
           switch(solvingDataset.solvingStage){
             case 0:
-              if(!solvingDataset.workingFace){
+              if(!solvingDataset.faces){
+                solvingDataset.faces = Array(6).fill().map(v=>{
+                  return {
+                    face: '',
+                    set: Array(9).fill(-1),
+                  }
+                })
                 
+                identities.forEach((face, fidx) => {
+                  face.forEach(id => {
+                    x = Math.round(id.ox/sp/1.2)
+                    y = Math.round(id.oy/sp/1.2)
+                    z = Math.round(id.oz/sp/1.2)
+                    if(fidx == face[4].posId){
+                      var colorName = IdFaceLookup(id.id)
+                      var faceName = tgtOris[id.posId].name
+                      var idx
+                      switch(faceName){  // 'sets' are organized,
+                                         //  left -> right, top -> bottom
+                        case 'back':
+                          idx = 8-((x+1)%3 + (y+1)*3)
+                        break
+                        case 'top':
+                          idx = (x+1)%3 + (2-(z+1))*3
+                        break
+                        case 'right':
+                          idx = (z+1)%3 + (2-(y+1))*3
+                        break
+                        case 'front':
+                          idx = (x+1)%3 + (2-(y+1))*3
+                        break
+                        case 'bottom':
+                          idx = (x+1)%3 + (z+1)*3
+                        break
+                        case 'left':
+                          idx = 8 - ((z+1)%3 + (y+1)*3)
+                        break
+                      }
+                      solvingDataset.faces[id.posId].face = faceName
+                      solvingDataset.faces[id.posId].set[idx] = colorName
+                    }
+                  })
+                })
               }else{
+                var best = -1, tgtFace
+                var tgts = [1, 3, 5, 7]
+                solvingDataset.faces.map((face, fidx) => {
+                  var ct = 0
+                  var cc = face.set[4]
+                  tgts.forEach(tgt => {
+                    ct += face.set[tgt] == cc ? 1 : 0
+                  })
+                  if(ct > best){
+                    best = ct
+                    tgtFace = fidx
+                  }
+                })
+                var faceName = solvingDataset.faces[tgtFace].face
+                console.log(`chosen face: ${faceName}`)
               }
             break
           }
@@ -1208,9 +1349,6 @@
               break
           }
         })
-        //sprites.forEach(sprite => {
-        //  if(sprite.shape) renderer.Draw(sprite.shape)
-        //})
 
         ctx.fillStyle = '#4f88'
         var forSort = []
@@ -1366,7 +1504,8 @@
               ctx.fillText(text, x + bwidth/2, y + fs*1.1)
               break
           }
-          if(highlight && !clicked && renderer.mouseButton !== -1 &&
+          if(highlight && !clicked && clickedWhileHighlighted &&
+             renderer.mouseButton !== -1 &&
              typeof renderer.mouseButton != 'undefined') {
             clicked = true
             switch(button.style){
@@ -1376,7 +1515,7 @@
                 button.clickState = !button.clickState
                 break
             }
-            eval(button.script)
+            if(button.enabled) eval(button.script)
           }
         })
         while(rubikShape.pitch > Math.PI) rubikShape.pitch -= Math.PI*2
@@ -1384,25 +1523,15 @@
         
         identities.forEach(face => {
           face.forEach(id => {
-            x = id.x
-            y = id.y
-            z = id.z
-            p = Math.atan2(x, z) //+ rubikShape.yaw
-            d = Math.hypot(x, z)
-            x = S(p) * d
-            z = C(p) * d
-            p = Math.atan2(y, z) //+ rubikShape.roll
-            d = Math.hypot(y, z)
-            y = S(p) * d
-            z = C(p) * d
-            var ar = Coordinates.GetShaderCoord(x, y, z, rubikShape, renderer)
+            var ar = Coordinates.GetShaderCoord(id.x, id.y, id.z,
+                                        rubikShape, renderer)
             if(ar && FaceIsVisible(id.posId)){
               ctx.textAlign = 'center'
               ctx.fillStyle = '#fff'
               ctx.strokeStyle = '#000'
               ctx.lineWidth = 3
               ctx.font = (fs = 250/ar[2]) + 'px verdana'
-              var colorName = idFaceLookup[id.id]
+              var colorName = IdFaceLookup(id.id)
               ctx.strokeText(colorName, ar[0], ar[1]+fs/3)
               ctx.fillText(colorName, ar[0], ar[1]+fs/3)
             }
