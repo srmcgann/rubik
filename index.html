@@ -282,8 +282,9 @@
         if(confirm('\n\nSolve cube?\n\nare you sure?')){
           console.log('solving cube')
           solving = true
-          solvingDataset = {
+          solvingDataset = baseSolvingDataset = {
             solvingStage: 0,
+            stageProgress: 0,
             workingFace: '',
             faces: []
           }
@@ -293,8 +294,24 @@
       var comp0, comp1, comp2, comp3, comp4, comp5, comp6
       var a, b, theta, phase
 
-      var speed = .2
-      const Shift = ( face, dir=1 ) => {
+      var defaultSpeed = .2, speed
+      const Shift = ( face, dir=1, trial=false ) => {
+        var t_rubikShape
+        var t_identities
+        if(trial){
+          speed = 1
+          t_rubikShape = 
+          {
+            vertices: structuredClone(rubikShape.vertices),
+            vstate: structuredClone(rubikShape.vstate),
+            shapeData: structuredClone(rubikShape.shapeData),
+          }
+          t_identities = structuredClone(identities)
+        }else{
+          speed = defaultSpeed
+          t_rubikShape = rubikShape
+          t_identities = identities
+        }
         var set, spd
         phase = Math.min(1, phase)
         
@@ -429,7 +446,7 @@
             break
         }
         theta = Math.PI/2 * dir * spd
-        rubikShape.shapeData.map((subShape, sidx) => {
+        t_rubikShape.shapeData.map((subShape, sidx) => {
           x = subShape.wx
           y = subShape.wy
           z = subShape.wz
@@ -464,18 +481,19 @@
                 b = id[comp2]
                 p = Math.atan2(a, b) + Math.PI/2 * dir * (phase+speed)
                 d = Math.hypot(a, b)
-                identities[iIdx][fidx][comp1] = S(p) * d
-                identities[iIdx][fidx][comp2] = C(p) * d
+                t_identities[iIdx][fidx][comp1] = S(p) * d
+                t_identities[iIdx][fidx][comp2] = C(p) * d
               }
             })
           })
         })
         phase += speed
-        return true
+        return trial ? { rubikShape: t_rubikShape,
+                         identities: t_identities } : true
       }
 
 
-      var px, py, pz, curMove=''
+      var px, py, pz, curMove = '', tryMove = ''
 
       var faces = [
         'front',
@@ -499,12 +517,43 @@
 
       const RotateFace = dir => {
         if(shuffleTTL < renderer.t &&
-           !numlock && (phase == 0 || phase == 1)){
+           (solving || !numlock) && (phase == 0 || phase == 1)){
           Coordinates.ApplyShapeData(rubikShape)
           curMove = [ curCursorView,
                      curCursorView == 'top' ||
                      curCursorView == 'bottom' ? -dir : dir]
           phase = 0
+        }
+      }
+
+      const TryRotateFace = (face, dir) => {
+        if(shuffleTTL < renderer.t &&
+           (solving || !numlock) && (phase == 0 || phase == 1)){
+          Coordinates.ApplyShapeData(rubikShape)
+          var TryMove = [ face, face == 'top' || face == 'bottom' ? -dir : dir]
+          phase = 0
+          
+          var res = Shift(...TryMove, true)
+          
+          for(var i = 0; i < res.identities.length; i++){
+            for(var k = 0; k < res.identities[i].length; k++){
+              var mind = 6e6, tidx1
+              var tx = res.identities[i][k].x
+              var ty = res.identities[i][k].y
+              var tz = res.identities[i][k].z
+              for(var j = 0; j < res.identities.length; j++){
+                x = res.identities[j][4].x
+                y = res.identities[j][4].y
+                z = res.identities[j][4].z
+                if((d = Math.hypot(x-tx, y-ty, z-tz)) < mind){
+                  mind = d
+                  tidx1 = j
+                }
+              }
+              res.identities[i][k].posId = tidx1
+            }
+          }
+          return GenerateSolvingDataset(res.identities)
         }
       }
 
@@ -803,9 +852,18 @@
         my = renderer.mouseY
       }
 
+      const ViewSide = faceName => {
+        curView = faceName
+        if(numlock){
+          orbitYaw = 0
+          orbitPitch = 0
+        }
+      }
+
       c.focus()
       c.onkeydown = e => {
         keyHasBeenPressed = true
+        console.log(e.keyCode)
         //numlock = e.getModifierState('NumLock')
         keys[e.keyCode] = true
       }
@@ -831,7 +889,7 @@
       var orbitYaw, orbitPitch, mouseButtonHasBeenClicked
       var enterKeyHasBeenPressed, highlighted, clicked, idc
       var oph, clickedWhileHighlighted, faceAssocs, showColorNames = false
-      var clickTargets, identities, solvingDataset
+      var clickTargets, identities, solvingDataset, baseSolvingDataset
 
       const Init = (reset = false) => {
 
@@ -1096,7 +1154,48 @@
         },*/
       ]
       
-      
+      const GenerateSolvingDataset = resource => {
+        var ret = structuredClone(baseSolvingDataset)
+        ret.workingFace = ''
+        ret.faces = Array(6).fill().map(v=>{
+          return {
+            face: '',
+            set: Array(9).fill(-1),
+          }
+        })
+        resource.forEach((face, fidx) => {
+          face.forEach(id => {
+            x = Math.round(id.x/sp/1.2)
+            y = Math.round(id.y/sp/1.2)
+            z = Math.round(id.z/sp/1.2)
+            if(fidx == face[4].posId){
+              var colorName = IdFaceLookup(id.id)
+              var faceName = tgtOris[id.posId].name
+              var idx, fx, fy
+              switch(faceName){
+                case 'back': idx = 8-((x+1)%3 + (y+1)*3);break
+                case 'top': idx = (x+1)%3 + (2-(z+1))*3; break
+                case 'right': idx = (z+1)%3 + (2-(y+1))*3; break
+                case 'front': idx = (x+1)%3 + (2-(y+1))*3; break
+                case 'bottom': idx = (x+1)%3 + (z+1)*3; break
+                case 'left': idx = 8 - ((z+1)%3 + (y+1)*3); break
+              }
+              ret.faces[id.posId].face = faceName
+              ret.faces[id.posId].set[idx] = {
+                posId: id.posId,
+                colorName,
+                x, y, z,
+                id: id.id,
+                rx: id.x,
+                ry: id.y,
+                rz: id.z,
+                special: false,
+              }
+            }
+          })
+        })
+        return ret
+      }
       const ShowOverlay = () => {
         var overlay = document.querySelectorAll('.overlay')[0]
         overlay.style.display = 'block'
@@ -1130,81 +1229,51 @@
         if(solving){
           switch(solvingDataset.solvingStage){
             case 0:
-              if(!solvingDataset.workingFace){
-                // find best starting point
-                solvingDataset.faces = Array(6).fill().map(v=>{
-                  return {
-                    face: '',
-                    set: Array(9).fill(-1),
-                  }
-                })
-                identities.forEach((face, fidx) => {
-                  face.forEach(id => {
-                    x = Math.round(id.x/sp/1.2)
-                    y = Math.round(id.y/sp/1.2)
-                    z = Math.round(id.z/sp/1.2)
-                    if(fidx == face[4].posId){
-                      var colorName = IdFaceLookup(id.id)
-                      var faceName = tgtOris[id.posId].name
-                      var idx, fx, fy
-                      switch(faceName){
-                        case 'back':
-                          idx = 8-((x+1)%3 + (y+1)*3)
-                          fx = 3-x, fy = 3-y
-                        break
-                        case 'top':
-                          idx = (x+1)%3 + (2-(z+1))*3
-                          fx = x+1, fy = 3-z
-                        break
-                        case 'right':
-                          idx = (z+1)%3 + (2-(y+1))*3
-                          fx = z+1, fy = 3-y
-                        break
-                        case 'front':
-                          idx = (x+1)%3 + (2-(y+1))*3
-                          fx = x+1, fy = 3-y
-                        break
-                        case 'bottom':
-                          idx = (x+1)%3 + (z+1)*3
-                          fx = x+1, fy = z+1
-                        break
-                        case 'left':
-                          idx = 8 - ((z+1)%3 + (y+1)*3)
-                          fx = 3-z, fy = y+1
-                        break
-                      }
-                      solvingDataset.faces[id.posId].face = faceName
-                      solvingDataset.faces[id.posId].set[idx] = {
-                        colorName, x, y, z, fx, fy, posId: id.posId,
-                        rx: id.x, ry: id.y, rz: id.z, id: id.id
-                      }
+              switch(solvingDataset.stageProgress){
+                case 0:
+                  solvingDataset = GenerateSolvingDataset(identities)
+                  var best = -1, tgtFace
+                  var tgts = [1, 3, 5, 7]
+                  solvingDataset.faces.map((face, fidx) => {
+                    var ct = 0
+                    var cc = face.set[4].colorName
+                    tgts.forEach(tgt => {
+                      ct += face.set[tgt].colorName == cc ? 1 : 0
+                    })
+                    if(ct > best){
+                      best = ct
+                      tgtFace = fidx
                     }
                   })
-                })
-                var best = -1, tgtFace
-                var tgts = [1, 3, 5, 7]
-                solvingDataset.faces.map((face, fidx) => {
-                  var ct = 0
-                  var cc = face.set[4].colorName
-                  tgts.forEach(tgt => {
-                    ct += face.set[tgt].colorName == cc ? 1 : 0
+                  var faceName = solvingDataset.faces[tgtFace].face
+                  solvingDataset.workingFace = faceName
+                  console.log(`chosen face: ${faceName}`)
+                  
+                  solvingDataset.faces.filter(v=>v.face==faceName)[0].set.map((id, idx) => {
+                    if(
+                      tgts.filter(q=>q==idx).length &&
+                      id.id != id.posId
+                    ) id.special = true
                   })
-                  if(ct > best){
-                    best = ct
-                    tgtFace = fidx
-                  }
-                })
-                var faceName = solvingDataset.faces[tgtFace].face
-                console.log(`chosen face: ${faceName}`)
-                solvingDataset.workingFace = faceName
-              }else{
-                console.log(solvingDataset)
+                  
+                  
+                  setTimeout(()=>{
+                    ViewSide(faceName)
+                    //curCursorView = 'right'
+                    console.log(TryRotateFace('left', -1))
+                  }, 1000)
+                  
+                  solvingDataset.stageProgress++
+                break
+                case 1:
+                  
+                  solvingDataset.stageProgress++
+                break
               }
             break
           }
-        }else{
-          if(!curMove || !Shift(...curMove)) ChooseMove()
         }
+        if(!curMove || !Shift(...curMove)) ChooseMove()
 
         DoKeys()
         var cView = peekView ? peekView : curView
@@ -1285,7 +1354,7 @@
               renderer.Draw(shape)
               break
             case 'cursor':
-              if(!numlock){
+              if(!numlock || solving){
 
                 var cCursorView
                 if(phase < 1){
@@ -1368,7 +1437,7 @@
           }
         })
         if(forSort.length){
-          numlock = false
+          numlock = solving
           forSort.sort((a, b)=>{
             var ax = 0
             var ay = 0
@@ -1549,14 +1618,25 @@
               var ar = Coordinates.GetShaderCoord(id.rx, id.ry, id.rz,
                                         rubikShape, renderer)
               if(ar && FaceIsVisible(id.posId)){
+                if(id.special){
+                  var s = 500/ar[2]
+                  ctx.fillStyle = '#8f4'
+                  ctx.fillRect(ar[0]-s/2,ar[1]-s/2,s,s)
+                }
                 ctx.textAlign = 'center'
                 ctx.fillStyle = '#fff'
                 ctx.strokeStyle = '#000'
-                ctx.lineWidth = 3
+                ctx.lineWidth = 4
                 ctx.font = (fs = 250/ar[2]) + 'px verdana'
                 str = id.colorName
+                ctx.strokeText(str, ar[0], ar[1]+fs/3 - fs)
+                ctx.fillText(str, ar[0], ar[1]+fs/3 - fs)
+                str = `id: ${id.id}`
                 ctx.strokeText(str, ar[0], ar[1]+fs/3)
                 ctx.fillText(str, ar[0], ar[1]+fs/3)
+                str = `posId: ${id.posId}`
+                ctx.strokeText(str, ar[0], ar[1]+fs/3+fs)
+                ctx.fillText(str, ar[0], ar[1]+fs/3+fs)
               }
             })
           })
