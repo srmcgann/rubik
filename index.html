@@ -259,12 +259,6 @@
       var shuffleTTL = 0
       const Shuffle = () => {
         if(confirm('\n\nShuffle?\n\nare you sure?')){
-          solving = false
-          solvingDataset = {
-            solvingStage: 0,
-            faces: '',
-          }
-          
           setTimeout(()=>{
             if(shuffleTTL < renderer.t && !solving) {
               shuffleTTL = renderer.t + 3
@@ -290,7 +284,8 @@
           solving = true
           solvingDataset = {
             solvingStage: 0,
-            faces: '',
+            workingFace: '',
+            faces: []
           }
         }
       }
@@ -505,13 +500,11 @@
       const RotateFace = dir => {
         if(shuffleTTL < renderer.t &&
            !numlock && (phase == 0 || phase == 1)){
-          setTimeout(() => {
-            Coordinates.ApplyShapeData(rubikShape)
-            curMove = [ curCursorView,
-                       curCursorView == 'top' ||
-                       curCursorView == 'bottom' ? -dir : dir]
-            phase = 0
-          }, 0)
+          Coordinates.ApplyShapeData(rubikShape)
+          curMove = [ curCursorView,
+                     curCursorView == 'top' ||
+                     curCursorView == 'bottom' ? -dir : dir]
+          phase = 0
         }
       }
 
@@ -812,7 +805,6 @@
 
       c.focus()
       c.onkeydown = e => {
-        console.log(e.keyCode)
         keyHasBeenPressed = true
         //numlock = e.getModifierState('NumLock')
         keys[e.keyCode] = true
@@ -838,7 +830,7 @@
       var keyHasBeenPressed, numlock, peekView, doOscillate
       var orbitYaw, orbitPitch, mouseButtonHasBeenClicked
       var enterKeyHasBeenPressed, highlighted, clicked, idc
-      var oph, clickedWhileHighlighted, faceAssocs
+      var oph, clickedWhileHighlighted, faceAssocs, showColorNames = false
       var clickTargets, identities, solvingDataset
 
       const Init = (reset = false) => {
@@ -847,6 +839,7 @@
           //Shuffle()
           ChooseMove()
           clicked = false
+          solving = false
           keys = Array(256).fill(false)
           keyTimers = Array(256).fill(0)
           keyTimerInterval = .5
@@ -859,8 +852,8 @@
           clickedWhileHighlighted = false
         }
 
+        showColorNames = false
         numlock = true
-        solving = false
         orbitYaw = 0
         orbitPitch = 0
         doOscillate = false
@@ -925,9 +918,6 @@
               x: a[(i+0)%3]*(l=i<3?1:-1),
               y: a[(i+1)%3]*l,
               z: a[(i+2)%3]*l,
-              ox: a[(i+0)%3]*(l=i<3?1:-1),
-              oy: a[(i+1)%3]*l,
-              oz: a[(i+2)%3]*l,
               id: i,
               posId: i,
             }
@@ -1127,6 +1117,8 @@
         return 
       }
 
+      var showColorNames = false
+
       window.Draw = () => {
 
         var t = renderer.t
@@ -1138,57 +1130,64 @@
         if(solving){
           switch(solvingDataset.solvingStage){
             case 0:
-              if(!solvingDataset.faces){
+              if(!solvingDataset.workingFace){
+                // find best starting point
                 solvingDataset.faces = Array(6).fill().map(v=>{
                   return {
                     face: '',
                     set: Array(9).fill(-1),
                   }
                 })
-                
                 identities.forEach((face, fidx) => {
                   face.forEach(id => {
-                    x = Math.round(id.ox/sp/1.2)
-                    y = Math.round(id.oy/sp/1.2)
-                    z = Math.round(id.oz/sp/1.2)
+                    x = Math.round(id.x/sp/1.2)
+                    y = Math.round(id.y/sp/1.2)
+                    z = Math.round(id.z/sp/1.2)
                     if(fidx == face[4].posId){
                       var colorName = IdFaceLookup(id.id)
                       var faceName = tgtOris[id.posId].name
-                      var idx
-                      switch(faceName){  // 'sets' are organized,
-                                         //  left -> right, top -> bottom
+                      var idx, fx, fy
+                      switch(faceName){
                         case 'back':
                           idx = 8-((x+1)%3 + (y+1)*3)
+                          fx = 3-x, fy = 3-y
                         break
                         case 'top':
                           idx = (x+1)%3 + (2-(z+1))*3
+                          fx = x+1, fy = 3-z
                         break
                         case 'right':
                           idx = (z+1)%3 + (2-(y+1))*3
+                          fx = z+1, fy = 3-y
                         break
                         case 'front':
                           idx = (x+1)%3 + (2-(y+1))*3
+                          fx = x+1, fy = 3-y
                         break
                         case 'bottom':
                           idx = (x+1)%3 + (z+1)*3
+                          fx = x+1, fy = z+1
                         break
                         case 'left':
                           idx = 8 - ((z+1)%3 + (y+1)*3)
+                          fx = 3-z, fy = y+1
                         break
                       }
                       solvingDataset.faces[id.posId].face = faceName
-                      solvingDataset.faces[id.posId].set[idx] = colorName
+                      solvingDataset.faces[id.posId].set[idx] = {
+                        colorName, x, y, z, fx, fy, posId: id.posId,
+                        rx: id.x, ry: id.y, rz: id.z, id: id.id
+                      }
                     }
                   })
                 })
-              }else{
                 var best = -1, tgtFace
                 var tgts = [1, 3, 5, 7]
                 solvingDataset.faces.map((face, fidx) => {
                   var ct = 0
-                  var cc = face.set[4]
+                  var cc = face.set[4].colorName
                   tgts.forEach(tgt => {
-                    ct += face.set[tgt] == cc ? 1 : 0
+                    ct += face.set[tgt].colorName == cc ? 1 : 0
                   })
                   if(ct > best){
                     best = ct
@@ -1197,6 +1196,9 @@
                 })
                 var faceName = solvingDataset.faces[tgtFace].face
                 console.log(`chosen face: ${faceName}`)
+                solvingDataset.workingFace = faceName
+              }else{
+                console.log(solvingDataset)
               }
             break
           }
@@ -1515,28 +1517,51 @@
                 button.clickState = !button.clickState
                 break
             }
-            if(button.enabled) eval(button.script)
+            eval(button.script)
           }
         })
         while(rubikShape.pitch > Math.PI) rubikShape.pitch -= Math.PI*2
         while(rubikShape.pitch < -Math.PI) rubikShape.pitch += Math.PI*2
         
-        identities.forEach(face => {
-          face.forEach(id => {
+        identities.forEach((face, fidx) => {
+          face.forEach((id, idx) => {
             var ar = Coordinates.GetShaderCoord(id.x, id.y, id.z,
                                         rubikShape, renderer)
-            if(ar && FaceIsVisible(id.posId)){
-              ctx.textAlign = 'center'
-              ctx.fillStyle = '#fff'
-              ctx.strokeStyle = '#000'
-              ctx.lineWidth = 3
-              ctx.font = (fs = 250/ar[2]) + 'px verdana'
-              var colorName = IdFaceLookup(id.id)
-              ctx.strokeText(colorName, ar[0], ar[1]+fs/3)
-              ctx.fillText(colorName, ar[0], ar[1]+fs/3)
+
+            if(showColorNames) {
+              if(ar && FaceIsVisible(id.posId)){
+                ctx.textAlign = 'center'
+                ctx.fillStyle = '#fff'
+                ctx.strokeStyle = '#000'
+                ctx.lineWidth = 3
+                ctx.font = (fs = 250/ar[2]) + 'px verdana'
+                var colorName = IdFaceLookup(id.id)
+                ctx.strokeText(colorName, ar[0], ar[1]+fs/3)
+                ctx.fillText(colorName, ar[0], ar[1]+fs/3)
+              }
             }
           })
         })
+        
+        if(solving) {
+          var str = solvingDataset.faces.map((face, fidx) => {
+            face.set.map(id => {
+              var ar = Coordinates.GetShaderCoord(id.rx, id.ry, id.rz,
+                                        rubikShape, renderer)
+              if(ar && FaceIsVisible(id.posId)){
+                ctx.textAlign = 'center'
+                ctx.fillStyle = '#fff'
+                ctx.strokeStyle = '#000'
+                ctx.lineWidth = 3
+                ctx.font = (fs = 250/ar[2]) + 'px verdana'
+                str = id.colorName
+                ctx.strokeText(str, ar[0], ar[1]+fs/3)
+                ctx.fillText(str, ar[0], ar[1]+fs/3)
+              }
+            })
+          })
+        }
+            
         if(phase == 1) {
           if(phase != oph){
             for(var i = 0; i < identities.length; i++){
