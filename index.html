@@ -282,10 +282,13 @@
         if(override || confirm('\n\nSolve cube?\n\nare you sure?')){
           console.log('solving cube')
           solving = true
-          solvingDataset = baseSolvingDataset = {
+          solveSet = basesolveSet = {
             solvingStage: 0,
             stageProgress: 0,
             workingFace: '',
+            tgts: [],
+            queue: [],
+            memo: [],
             faces: []
           }
         }
@@ -295,7 +298,7 @@
       var a, b, theta, phase
 
       var defaultSpeed = .2, speed
-      const Shift = ( face, dir=1, trial=false ) => {
+      const Shift = ( face, dir=1, trial=false, ids = [], turns=1 ) => {
         var t_rubikShape
         var t_identities
         if(trial){
@@ -306,12 +309,13 @@
             vstate: structuredClone(rubikShape.vstate),
             shapeData: structuredClone(rubikShape.shapeData),
           }
-          t_identities = structuredClone(identities)
+          t_identities = structuredClone(ids)
         }else{
           speed = defaultSpeed
           t_rubikShape = rubikShape
           t_identities = identities
         }
+        
         var set, spd
         phase = Math.min(1, phase)
         
@@ -320,173 +324,174 @@
         }else{
           return false
         }
-        switch(face){
-          case 'front':
-            set = [
-              [-1, -1,  -1],
-              [0,  -1,  -1],
-              [1,  -1,  -1],
-              [-1,  0,  -1],
-              [0,   0,  -1],
-              [1,   0,  -1],
-              [-1,  1,  -1],
-              [0,   1,  -1],
-              [1,   1,  -1],
-            ]
-            comp0 = 'roll'
-            comp1 = 'x'
-            comp2 = 'y'
-            comp3 = 'ox'
-            comp4 = 'oy'
-            comp5 = 'wx'
-            comp6 = 'wy'
-            break
-          case 'left':
-            set = [
-              [-1,  -1, -1],
-              [-1,  0,  -1],
-              [-1,  1,  -1],
-              [-1,  -1,  0],
-              [-1,  0,   0],
-              [-1,  1,   0],
-              [-1,  -1,  1],
-              [-1,  0,   1],
-              [-1,  1,   1],
-            ]
-            comp0 = 'pitch'
-            comp1 = 'y'
-            comp2 = 'z'
-            comp3 = 'oy'
-            comp4 = 'oz'
-            comp5 = 'wy'
-            comp6 = 'wz'
-            break
-          case 'right':
-            set = [
-              [1,  -1, -1],
-              [1,  0,  -1],
-              [1,  1,  -1],
-              [1,  -1,  0],
-              [1,  0,   0],
-              [1,  1,   0],
-              [1,  -1,  1],
-              [1,  0,   1],
-              [1,  1,   1],
-            ]
-            dir *= -1
-            comp0 = 'pitch'
-            comp1 = 'y'
-            comp2 = 'z'
-            comp3 = 'oy'
-            comp4 = 'oz'
-            comp5 = 'wy'
-            comp6 = 'wz'
-            break
-          case 'back':
-            set = [
-              [-1, -1,  1],
-              [0,  -1,  1],
-              [1,  -1,  1],
-              [-1,  0,  1],
-              [0,   0,  1],
-              [1,   0,  1],
-              [-1,  1,  1],
-              [0,   1,  1],
-              [1,   1,  1],
-            ]
-            dir *= -1
-            comp0 = 'roll'
-            comp1 = 'x'
-            comp2 = 'y'
-            comp3 = 'ox'
-            comp4 = 'oy'
-            comp5 = 'wx'
-            comp6 = 'wy'
-            break
-          case 'bottom':
-            set = [
-              [-1, -1, -1],
-              [0,  -1, -1],
-              [1,  -1, -1],
-              [-1, -1,  0],
-              [0,  -1,  0],
-              [1,  -1,  0],
-              [-1, -1,  1],
-              [0,  -1,  1],
-              [1,  -1,  1],
-            ]
-            comp0 = 'yaw'
-            comp1 = 'x'
-            comp2 = 'z'
-            comp3 = 'ox'
-            comp4 = 'oz'
-            comp5 = 'wx'
-            comp6 = 'wz'
-            break
-          case 'top':
-            set = [
-              [-1, 1, -1],
-              [0,  1, -1],
-              [1,  1, -1],
-              [-1, 1,  0],
-              [0,  1,  0],
-              [1,  1,  0],
-              [-1, 1,  1],
-              [0,  1,  1],
-              [1,  1,  1],
-            ]
-            dir *= -1
-            comp0 = 'yaw'
-            comp1 = 'x'
-            comp2 = 'z'
-            comp3 = 'ox'
-            comp4 = 'oz'
-            comp5 = 'wx'
-            comp6 = 'wz'
-            break
-        }
-        theta = Math.PI/2 * dir * spd
-        t_rubikShape.shapeData.map((subShape, sidx) => {
-          x = subShape.wx
-          y = subShape.wy
-          z = subShape.wz
-          px = Math.round(x/sp)
-          py = Math.round(y/sp)
-          pz = Math.round(z/sp)
-          set.forEach(v=>{
-            if(px == v[0] && py == v[1] && pz == v[2]){
-              subShape[comp0] += theta
-              a = subShape[comp5]
-              b = subShape[comp6]
-              p = Math.atan2(a, b) + theta
-              d = Math.hypot(a, b)
-              subShape[comp1] = S(p) * d - subShape[comp3]
-              subShape[comp2] = C(p) * d - subShape[comp4]
-            }
-          })
-        })
-        idc.map((face, iIdx) => {
-          face.map((id, fidx) => {
-            px = Math.round(id.x/sp)
-            py = Math.round(id.y/sp)
-            pz = Math.round(id.z/sp)
+          switch(face){
+            case 'front':
+              set = [
+                [-1, -1,  -1],
+                [0,  -1,  -1],
+                [1,  -1,  -1],
+                [-1,  0,  -1],
+                [0,   0,  -1],
+                [1,   0,  -1],
+                [-1,  1,  -1],
+                [0,   1,  -1],
+                [1,   1,  -1],
+              ]
+              comp0 = 'roll'
+              comp1 = 'x'
+              comp2 = 'y'
+              comp3 = 'ox'
+              comp4 = 'oy'
+              comp5 = 'wx'
+              comp6 = 'wy'
+              break
+            case 'left':
+              set = [
+                [-1,  -1, -1],
+                [-1,  0,  -1],
+                [-1,  1,  -1],
+                [-1,  -1,  0],
+                [-1,  0,   0],
+                [-1,  1,   0],
+                [-1,  -1,  1],
+                [-1,  0,   1],
+                [-1,  1,   1],
+              ]
+              comp0 = 'pitch'
+              comp1 = 'y'
+              comp2 = 'z'
+              comp3 = 'oy'
+              comp4 = 'oz'
+              comp5 = 'wy'
+              comp6 = 'wz'
+              break
+            case 'right':
+              set = [
+                [1,  -1, -1],
+                [1,  0,  -1],
+                [1,  1,  -1],
+                [1,  -1,  0],
+                [1,  0,   0],
+                [1,  1,   0],
+                [1,  -1,  1],
+                [1,  0,   1],
+                [1,  1,   1],
+              ]
+              dir *= -1
+              comp0 = 'pitch'
+              comp1 = 'y'
+              comp2 = 'z'
+              comp3 = 'oy'
+              comp4 = 'oz'
+              comp5 = 'wy'
+              comp6 = 'wz'
+              break
+            case 'back':
+              set = [
+                [-1, -1,  1],
+                [0,  -1,  1],
+                [1,  -1,  1],
+                [-1,  0,  1],
+                [0,   0,  1],
+                [1,   0,  1],
+                [-1,  1,  1],
+                [0,   1,  1],
+                [1,   1,  1],
+              ]
+              dir *= -1
+              comp0 = 'roll'
+              comp1 = 'x'
+              comp2 = 'y'
+              comp3 = 'ox'
+              comp4 = 'oy'
+              comp5 = 'wx'
+              comp6 = 'wy'
+              break
+            case 'bottom':
+              set = [
+                [-1, -1, -1],
+                [0,  -1, -1],
+                [1,  -1, -1],
+                [-1, -1,  0],
+                [0,  -1,  0],
+                [1,  -1,  0],
+                [-1, -1,  1],
+                [0,  -1,  1],
+                [1,  -1,  1],
+              ]
+              comp0 = 'yaw'
+              comp1 = 'x'
+              comp2 = 'z'
+              comp3 = 'ox'
+              comp4 = 'oz'
+              comp5 = 'wx'
+              comp6 = 'wz'
+              break
+            case 'top':
+              set = [
+                [-1, 1, -1],
+                [0,  1, -1],
+                [1,  1, -1],
+                [-1, 1,  0],
+                [0,  1,  0],
+                [1,  1,  0],
+                [-1, 1,  1],
+                [0,  1,  1],
+                [1,  1,  1],
+              ]
+              dir *= -1
+              comp0 = 'yaw'
+              comp1 = 'x'
+              comp2 = 'z'
+              comp3 = 'ox'
+              comp4 = 'oz'
+              comp5 = 'wx'
+              comp6 = 'wz'
+              break
+          }
+          theta = Math.PI/2 * dir * spd * turns
+          t_rubikShape.shapeData.map((subShape, sidx) => {
+            x = subShape.wx
+            y = subShape.wy
+            z = subShape.wz
+            px = Math.round(x/sp)
+            py = Math.round(y/sp)
+            pz = Math.round(z/sp)
             set.forEach(v=>{
-              if(Math.hypot(px-v[0],py-v[1],pz-v[2])==1){
-                px = v[0]
-                py = v[1]
-                pz = v[2]
-              }
               if(px == v[0] && py == v[1] && pz == v[2]){
-                a = id[comp1]
-                b = id[comp2]
-                p = Math.atan2(a, b) + Math.PI/2 * dir * (phase+speed)
+                subShape[comp0] += theta
+                a = subShape[comp5]
+                b = subShape[comp6]
+                p = Math.atan2(a, b) + theta
                 d = Math.hypot(a, b)
-                t_identities[iIdx][fidx][comp1] = S(p) * d
-                t_identities[iIdx][fidx][comp2] = C(p) * d
+                subShape[comp1] = S(p) * d - subShape[comp3]
+                subShape[comp2] = C(p) * d - subShape[comp4]
               }
             })
           })
-        })
+          idc.map((face, iIdx) => {
+            face.map((id, fidx) => {
+              px = Math.round(id.x/sp)
+              py = Math.round(id.y/sp)
+              pz = Math.round(id.z/sp)
+              set.forEach(v=>{
+                if(Math.hypot(px-v[0],py-v[1],pz-v[2])==1){
+                  px = v[0]
+                  py = v[1]
+                  pz = v[2]
+                }
+                if(px == v[0] && py == v[1] && pz == v[2]){
+                  a = id[comp1]
+                  b = id[comp2]
+                  p = Math.atan2(a, b) + Math.PI/2 * dir * (phase+speed) * turns
+                  d = Math.hypot(a, b)
+                  t_identities[iIdx][fidx][comp1] = S(p) * d
+                  t_identities[iIdx][fidx][comp2] = C(p) * d
+                }
+              })
+            })
+          })
+
         phase += speed
         return trial ? { rubikShape: t_rubikShape,
                          identities: t_identities } : true
@@ -526,14 +531,14 @@
         }
       }
 
-      const TryRotateFace = (face, dir) => {
+      const TryRotateFace = (face, dir, ids, turns = 1) => {
         if(shuffleTTL < renderer.t &&
            (solving || !numlock) && (phase == 0 || phase == 1)){
           Coordinates.ApplyShapeData(rubikShape)
           var TryMove = [ face, face == 'top' || face == 'bottom' ? -dir : dir]
           phase = 0
           
-          var res = Shift(...TryMove, true)
+          var res = Shift(...TryMove, true, ids, turns)
           
           for(var i = 0; i < res.identities.length; i++){
             for(var k = 0; k < res.identities[i].length; k++){
@@ -553,8 +558,31 @@
               res.identities[i][k].posId = tidx1
             }
           }
-          return GenerateSolvingDataset(res.identities)
+          return GeneratesolveSet(res.identities)
         }
+      }
+      
+      const Adjoining = (el, ids) => {
+        var ret = []
+        var x1 = Math.round(el.x / sp / 1.2)
+        var y1 = Math.round(el.y / sp / 1.2)
+        var z1 = Math.round(el.z / sp / 1.2)
+        ids.forEach((face, fidx) => {
+          face.forEach((el2, idx2) => {
+            var x2 = Math.round(el2.x / sp / 1.2)
+            var y2 = Math.round(el2.y / sp / 1.2)
+            var z2 = Math.round(el2.z / sp / 1.2)
+            if(x1 == x2 &&
+               y1 == y2 &&
+               z1 == z2 &&
+               (el2.id != el.id ||
+               el2.posId != el.posId)) ret.push({
+                 fidx, idx2,
+                 adjoining: structuredClone(el2)
+               })
+          })
+        })
+        return ret
       }
 
       const RelativeFace = (cur, tgt) => {
@@ -955,7 +983,7 @@
       var orbitYaw, orbitPitch, mouseButtonHasBeenClicked
       var enterKeyHasBeenPressed, highlighted, clicked, idc
       var oph, clickedWhileHighlighted, faceAssocs, showColorNames = false
-      var clickTargets, identities, solvingDataset, baseSolvingDataset
+      var clickTargets, identities, solveSet, basesolveSet
 
       const Init = (reset = false) => {
 
@@ -1220,8 +1248,8 @@
         },*/
       ]
       
-      const GenerateSolvingDataset = resource => {
-        var ret = structuredClone(baseSolvingDataset)
+      const GeneratesolveSet = resource => {
+        var ret = structuredClone(basesolveSet)
         ret.workingFace = ''
         ret.faces = Array(6).fill().map(v=>{
           return {
@@ -1313,17 +1341,18 @@
         
         // solving algorithm
         if(solving){
-          switch(solvingDataset.solvingStage){
+          switch(solveSet.solvingStage){
             case 0:
-              var tgts = [1, 3, 5, 7]
-              switch(solvingDataset.stageProgress){
+              solveSet.tgts = [1, 3, 5, 7]
+              switch(solveSet.stageProgress){
                 case 0:
-                  solvingDataset = GenerateSolvingDataset(identities)
+                  // pick side with "most complete cross", go there
+                  solveSet = GeneratesolveSet(identities)
                   var best = -1, tgtFace
-                  solvingDataset.faces.map((face, fidx) => {
+                  solveSet.faces.map((face, fidx) => {
                     var ct = 0
                     var cc = face.set[4].colorName
-                    tgts.forEach(tgt => {
+                    solveSet.tgts.forEach(tgt => {
                       ct += face.set[tgt].colorName == cc ? 1 : 0
                     })
                     if(ct > best){
@@ -1331,36 +1360,36 @@
                       tgtFace = fidx
                     }
                   })
-                  var faceName = solvingDataset.faces[tgtFace].face
-                  solvingDataset.workingFace = faceName
+                  var faceName = solveSet.faces[tgtFace].face
+                  solveSet.workingFace = faceName
                   console.log(`chosen face: ${faceName}`)
                   
-                  solvingDataset.faces.filter(v=>v.face==faceName)[0].set.map((id, idx) => {
+                  solveSet.faces.filter(v=>v.face==faceName)[0].set.map((id, idx) => {
                     if(
-                      tgts.filter(q=>q==idx).length &&
+                      solveSet.tgts.filter(q=>q==idx).length &&
                       id.id != id.posId
                     ) id.special = true
                   })
                   
                   ViewSide(faceName)
-                  solvingDataset.stageProgress++
+                  solveSet.stageProgress++
                 break
                 case 1:
-                
-                
-                  var newDataset = GenerateSolvingDataset(identities)
-                  solvingDataset.faces = newDataset.faces
-                  solvingDataset.faces.filter(v=>v.face==solvingDataset.workingFace)[0].set.map((id, idx) => {
+                  // complete the cross
+                  
+                  var newDataset = GeneratesolveSet(identities)
+                  solveSet.faces = newDataset.faces
+                  solveSet.faces.filter(v=>v.face==solveSet.workingFace)[0].set.map((id, idx) => {
                     if(
-                      tgts.filter(q=>q==idx).length &&
+                      solveSet.tgts.filter(q=>q==idx).length &&
                       id.id != id.posId
                     ) id.special = true
                   })
                   
 
                   var selMoves = []
-                  solvingDataset.faces.filter(v=>{
-                    return v.face==solvingDataset.workingFace
+                  solveSet.faces.filter(v=>{
+                    return v.face==solveSet.workingFace
                   })[0].set.map((id, idx) => {
                     if(id.special){
                       if(id.fx){
@@ -1368,31 +1397,298 @@
                       }else{
                         var testFace = id.fy < 0 ? 'top' : 'bottom'
                       }
-                      var relFace = RelativeFace(solvingDataset.workingFace,
+                      var relFace = RelativeFace(solveSet.workingFace,
                                               testFace)
-                      console.log(`suggeted: rotate ${relFace}`)
+                      //console.log(`suggeted: rotate ${relFace}`)
                       selMoves.push(relFace)
                     }
                   })
                   if(selMoves.length){
                     if(phase == 1){
-                      
-                      var l = selMoves.length * Rn() | 0
-                      if(Rn() < .25){
-                        curCursorView = solvingDataset.workingFace
+
+                      var ids = structuredClone(identities)
+                      var turns = j + 1
+                      var data = solveSet
+                      var sidx = tgtOris.filter(v=>v.name==solveSet.workingFace)[0].oid
+                      var set = data.faces[sidx].set
+                      var cc = set[4].colorName
+                      var ct = 0
+                      solveSet.tgts.map(idx => {
+                        ct += set[idx].colorName == cc ? 1 : 0
+                      })
+                    
+                      var path = [], mind = ct, sugg = ''
+                      selMoves.forEach(mv => {
+                        var ids = structuredClone(identities)
+                        for(var j = 0; j < 3; j++){
+                          var dir = -1
+                          var turns = j + 1
+                          var data = TryRotateFace(mv, dir, ids, turns)
+                          var sidx = tgtOris.filter(v=>v.name==solveSet.workingFace)[0].oid
+                          var set = data.faces[sidx].set
+                          var cc = set[4].colorName
+                          var ct = 0
+                          solveSet.tgts.map(idx => {
+                            ct += set[idx].colorName == cc ? 1 : 0
+                          })
+                          if(ct > mind){
+                            mind = ct
+                            sugg = {mv, ct, dir, turns}
+                            //path.push({sugg, ct})
+                          }
+                        }
+                      })
+                      if(sugg){
+                        curCursorView = sugg.mv
+                        RotateFace(sugg.dir)
                       }else{
-                        curCursorView = Rn() < .5 ? selMoves[l] :
-                            RelativeFace(solvingDataset.workingFace, 'back')
+                        if(mind<4 && phase == 1){
+                          curCursorView = Rn() < .65 ? 
+                            selMoves[selMoves.length * Rn() | 0] :
+                            solveSet.workingFace
+                          RotateFace(-1)
+                        }
                       }
-                      curMove = [
-                        curCursorView,
-                        Rn() < .5 ? 1 : -1
-                      ]
-                      
-                      RotateFace(Rn() < .5 ? 1 : -1)
                     }
                   }else{
-                    if(phase == 1) solvingDataset.stageProgress++
+                    if(phase == 1) solveSet.stageProgress++
+                  }
+                break
+                case 2:
+                  //console.log('ready for next step')
+                  if(phase == 1){
+
+                    var sidx = tgtOris.filter(v=>v.name==solveSet.workingFace)[0].oid
+                    //var newData = GeneratesolveSet(identities)
+                    //solveSet.faces = newData.faces
+                    var set = solveSet.faces[sidx].set
+                    solveSet.matching = []
+                    solveSet.tgts.forEach(tgt => {
+                      var el = set[tgt]
+                      
+                      el = {
+                        x: el.rx,
+                        y: el.ry,
+                        z: el.rz,
+                        id: el.id,
+                        posId: el.posId,
+                      }
+                      
+                      var adj = Adjoining(el, identities)
+                      adj.forEach(ad => {
+                        if(ad.adjoining.id == ad.adjoining.posId) {
+                          solveSet.matching.push(tgt)
+                        }
+                      })
+                    })
+                    if(solveSet.matching.length < 2){
+                      if(phase == 1){
+                        curCursorView = solveSet.workingFace
+                        RotateFace(1)
+                      }
+                    }else{
+                      solveSet.stageProgress++
+                    }
+                  }
+                break
+                case 3:
+                  if(phase == 1){
+                    if(solveSet.matching.length < 4 &&
+                      !solveSet.queue.length &&
+                      !solveSet.memo.length){
+                      solveSet.queue = []
+                      solveSet.memo = []
+                      var diff = Math.abs(solveSet.matching[1]-solveSet.matching[0])
+                      console.log('diff', diff)
+                      console.log('matching', solveSet.matching)
+                      if((diff == 2 && solveSet.matching[0]==3) || diff == 6){
+                        if(solveSet.matching[0] == 1){
+                          var tgtFace = RelativeFace(
+                            solveSet.workingFace, 'left')
+                            for(var m=2; m--;)
+                              solveSet.queue.push({ tgtFace, dir: -1 })
+                          tgtFace = RelativeFace(
+                            solveSet.workingFace, 'right')
+                            for(var m=2; m--;)
+                              solveSet.queue.push({ tgtFace, dir: 1 })
+                        }else{
+                          var tgtFace = RelativeFace(
+                            solveSet.workingFace, 'top')
+                            for(var m=2; m--;)
+                              solveSet.queue.push({ tgtFace, dir: -1 })
+                          tgtFace = RelativeFace(
+                            solveSet.workingFace, 'bottom')
+                            for(var m=2; m--;)
+                              solveSet.queue.push({ tgtFace, dir: 1 })
+                        }
+                        solveSet.memo = [1]
+                      }else{
+                        solveSet.memo = [2]
+                        console.log('2 match, but are not opposite')
+                      }
+                    }else{
+                      if(solveSet.queue.length){
+                        var mv = solveSet.queue.shift()
+                        curCursorView = mv.tgtFace
+                        RotateFace(mv.dir)
+                      }else{
+                        if(solveSet.matching.length == 4) {
+                          console.log('4 match!')
+                          solveSet.stageProgress++
+                        }else{
+                          switch(solveSet.memo[0]){
+                            case -1:
+                              console.log('4 match!')
+                              solveSet.stageProgress++
+                              solveSet.matching = solveSet.tgts
+                              console.log('hm')
+                            break
+                            // rotate backface, return
+                            case 1: // rotate backface, return
+                              var tgtFace = RelativeFace(
+                                solveSet.workingFace, 'back')
+                                for(var m=2; m--;)
+                                  solveSet.queue.push({ tgtFace, dir: -1 })
+                                if(solveSet.matching.indexOf(1) != -1){
+                                  var tgtFace = RelativeFace(
+                                    solveSet.workingFace, 'left')
+                                    for(var m=2; m--;)
+                                      solveSet.queue.push({ tgtFace, dir: -1 })
+                                  tgtFace = RelativeFace(
+                                    solveSet.workingFace, 'right')
+                                    for(var m=2; m--;)
+                                      solveSet.queue.push({ tgtFace, dir: 1 })
+                                }else{
+                                  var tgtFace = RelativeFace(
+                                    solveSet.workingFace, 'top')
+                                    for(var m=2; m--;)
+                                      solveSet.queue.push({ tgtFace, dir: -1 })
+                                  tgtFace = RelativeFace(
+                                    solveSet.workingFace, 'bottom')
+                                    for(var m=2; m--;)
+                                      solveSet.queue.push({ tgtFace, dir: 1 })
+                                }
+                                solveSet.memo = [-1]
+                            break
+                            case 2: // non-opposites
+                              var mode
+                              if(solveSet.matching[0] == 1 && solveSet.matching[1] == 5) mode = 2
+                              if(solveSet.matching[0] == 5 && solveSet.matching[1] == 7) mode = 3
+                              if(solveSet.matching[0] == 3 && solveSet.matching[1] == 7) mode = 0
+                              if(solveSet.matching[0] == 1 && solveSet.matching[1] == 3) mode = 1
+                              console.log(solveSet.matching, mode)
+                              var fc = []
+                              switch(mode){
+                                case 0:
+                                  fc = [
+                                    'right',
+                                    'right',
+                                    'top',
+                                    'top',
+                                    'back',
+                                    'top',
+                                    'top',
+                                    'back',
+                                    'back',
+                                    'right',
+                                    'right',
+                                  ]
+                                break
+                                case 1:
+                                  fc = [
+                                    'bottom',
+                                    'bottom',
+                                    'right',
+                                    'right',
+                                    'back',
+                                    'right',
+                                    'right',
+                                    'back',
+                                    'back',
+                                    'bottom',
+                                    'bottom',
+                                  ]
+                                break
+                                case 2:
+                                  fc = [
+                                    'left',
+                                    'left',
+                                    'bottom',
+                                    'bottom',
+                                    'back',
+                                    'bottom',
+                                    'bottom',
+                                    'back',
+                                    'back',
+                                    'left',
+                                    'left',
+                                  ]
+                                break
+                                case 3:
+                                  fc = [
+                                    'top',
+                                    'top',
+                                    'left',
+                                    'left',
+                                    'back',
+                                    'left',
+                                    'left',
+                                    'back',
+                                    'back',
+                                    'top',
+                                    'top',
+                                  ]
+                                break
+                              }
+                              fc.map(f => {
+                                tgtFace = RelativeFace(
+                                  solveSet.workingFace, f)
+                                  solveSet.queue.push({tgtFace, dir: 1})
+                              })
+                              solveSet.memo = [-1]
+                            break
+                          }
+                        }
+                      }
+                    }
+                  }
+                break
+                case 4:
+                  if(solveSet.memo.length){
+                    solveSet.queue = []
+                    solveSet.memo = []
+                    solveSet.tgts = [0, 2, 6, 8]
+                    
+                    
+                    var sidx = tgtOris.filter(v=>v.name==solveSet.workingFace)[0].oid
+                    //var newData = GeneratesolveSet(identities)
+                    //solveSet.faces = newData.faces
+                    var set = solveSet.faces[sidx].set
+                    solveSet.matching = []
+                    solveSet.tgts.forEach(tgt => {
+                      var el = set[tgt]
+                      
+                      el = {
+                        x: el.rx,
+                        y: el.ry,
+                        z: el.rz,
+                        id: el.id,
+                        posId: el.posId,
+                      }
+                      
+                      var adj = Adjoining(el, identities)
+                      adj.forEach(ad => {
+                        console.log(`adjoining [${tgt}]: `, ad)
+                        if(ad.adjoining.id == ad.adjoining.posId) {
+                          solveSet.matching.push(tgt)
+                        }
+                      })
+                    })
+                    
+                    console.log(solveSet.matching)
+                    
+                    
+                    console.log('ready for next step')
                   }
                 break
               }
@@ -1741,8 +2037,8 @@
         })
         
         if(solving) {
-          var str = solvingDataset.faces.map((face, fidx) => {
-            face.set.map(id => {
+          var str = solveSet.faces.map((face, fidx) => {
+            face.set.map((id, idx) => {
               var ar = Coordinates.GetShaderCoord(id.rx, id.ry, id.rz,
                                         rubikShape, renderer)
               if(ar && FaceIsVisible(id.posId)){
@@ -1751,13 +2047,13 @@
                   ctx.fillStyle = '#8f4'
                   ctx.fillRect(ar[0]-s/2,ar[1]-s/2,s,s)
                 }
-                /*
+                
                 ctx.textAlign = 'center'
                 ctx.fillStyle = '#fff'
                 ctx.strokeStyle = '#000'
                 ctx.lineWidth = 4
                 ctx.font = (fs = 250/ar[2]) + 'px verdana'
-                str = id.colorName
+                str = `idx: ${idx}` //id.colorName
                 ctx.strokeText(str, ar[0], ar[1]+fs/3 - fs)
                 ctx.fillText(str, ar[0], ar[1]+fs/3 - fs)
                 str = `id: ${id.id}`
@@ -1766,7 +2062,7 @@
                 str = `posId: ${id.posId}`
                 ctx.strokeText(str, ar[0], ar[1]+fs/3+fs)
                 ctx.fillText(str, ar[0], ar[1]+fs/3+fs)
-                */
+
               }
             })
           })
@@ -1801,7 +2097,7 @@
         }
       }
       
-      setTimeout(()=>{
+      if(1) setTimeout(()=>{
         Shuffle(true)
         mouseButtonHasBeenClicked = true
         setTimeout(()=>{
