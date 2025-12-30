@@ -299,7 +299,7 @@
       var comp0, comp1, comp2, comp3, comp4, comp5, comp6
       var a, b, theta, phase
 
-      var defaultSpeed = .2, speed
+      var defaultSpeed = .5, speed
       const Shift = ( face, dir=1, trial=false, ids = [], turns=1 ) => {
         var t_rubikShape
         var t_identities
@@ -1327,14 +1327,41 @@
           case 'back':
             if(pos[2] == 1){
               if(pos[1] == 1){
-                return pos[0] == 1 ? ['right', 1] : ['top', 1]
+                return pos[0] == 1 ? ['top', 1] : ['left', 1]
               }else{
-                return pos[0] == 1 ? ['left', 1] : ['bottom', 1]
+                return pos[0] == 1 ? ['right', 1] : ['bottom', 1]
               }
             }
           break
           case 'top':
             if(pos[1] == 1){
+              if(pos[2] == 1){
+                return pos[0] == 1 ? ['back', -1] : ['left', -1]
+              }else{
+                return pos[0] == 1 ? ['right', -1] : ['front', -1]
+              }
+            }
+          break
+          case 'right':
+            if(pos[0] == 1){
+              if(pos[1] == 1){
+                return pos[2] == 1 ? ['back', 1] : ['top', 1]
+              }else{
+                return pos[2] == 1 ? ['bottom', 1] : ['front', 1]
+              }
+            }
+          break
+          case 'front':
+            if(pos[2] == -1){
+              if(pos[1] == 1){
+                return pos[0] == 1 ? ['top', -1] : ['left', -1]
+              }else{
+                return pos[0] == 1 ? ['right', -1] : ['bottom', -1]
+              }
+            }
+          break
+          case 'bottom':
+            if(pos[1] == -1){
               if(pos[2] == 1){
                 return pos[0] == 1 ? ['back', 1] : ['left', 1]
               }else{
@@ -1342,39 +1369,12 @@
               }
             }
           break
-          case 'right':
-            if(pos[0] == 1){
-              if(pos[1] == 1){
-                return pos[2] == 1 ? ['top', 1] : ['front', 1]
-              }else{
-                return pos[2] == 1 ? ['back', 1] : ['bottom', 1]
-              }
-            }
-          break
-          case 'front':
-            if(pos[2] == -1){
-              if(pos[1] == 1){
-                return pos[0] == 1 ? ['top', 1] : ['left', 1]
-              }else{
-                return pos[0] == -1 ? ['right', 1] : ['bottom', 1]
-              }
-            }
-          break
-          case 'bottom':
-            if(pos[1] == -1){
-              if(pos[2] == -1){
-                return pos[0] == 1 ? ['left', 1] : ['front', 1]
-              }else{
-                return pos[0] == -1 ? ['right', 1] : ['back', 1]
-              }
-            }
-          break
           case 'left':
             if(pos[0] == -1){
               if(pos[1] == 1){
-                return pos[2] == 1 ? ['back', 1] : ['top', 1]
+                return pos[2] == 1 ? ['back', -1] : ['top', -1]
               }else{
-                return pos[2] == -1 ? ['front', 1] : ['bottom', 1]
+                return pos[2] == -1 ? ['front', -1] : ['bottom', -1]
               }
             }
           break
@@ -1771,7 +1771,7 @@
                       solveSet.faces = newData.faces
                       var set = solveSet.faces[sidx].set
                       solveSet.matching = []
-                      //solveSet.tgtColors = newData.tgtColors
+                      solveSet.tgtColors = newData.tgtColors
                       var colors
                       
                       if(solveSet.tgtColors.length == 0){
@@ -1862,20 +1862,27 @@
                           break
                         }
                       })
-                      console.log(set)
+                      console.log('tgtColors', solveSet.tgtColors)
+                      //console.log(set)
                       const DoMove = (tgt, onFace, tidx) => {
-                        var d = GetTurnAwayDir(
-                          onFace ? tgt.curPos : [
+                        var coords = onFace ? tgt.curPos : [
                             set[solveSet.tgts[tidx]].x,
                             set[solveSet.tgts[tidx]].y,
                             set[solveSet.tgts[tidx]].z,
-                          ], wf)
-                        if(d.length){
-                          solveSet.queue.push([d[0], -d[1]])
+                          ]
+                        var d = GetTurnAwayDir( coords, wf)
+                        if(d && d.length){
                           var tgtFace = RelativeFace(wf, 'back')
-                          solveSet.queue.push([tgtFace, -1])
-                          if(Rn() <= .5) solveSet.queue.push([tgtFace, 1])
+                          if(Rn() < .5) solveSet.queue.push([tgtFace, -1])
                           solveSet.queue.push([d[0], d[1]])
+                          solveSet.queue.push([tgtFace, 1])
+                          if(Rn() < .5) solveSet.queue.push([tgtFace, 1])
+                          solveSet.queue.push([d[0], -d[1]])
+                          //solveSet.queue.push([tgtFace, 1])
+                          //solveSet.queue.push([tgtFace, 1])
+                          //solveSet.queue.push([d[0], d[1]])
+                          //solveSet.queue.push([tgtFace, 1])
+                          //solveSet.queue.push([d[0], -d[1]])
                         }
                       }
                       
@@ -1884,125 +1891,130 @@
                         var curFID = cur.oid
                         //console.log(set)
                         solveSet.tgtColors.map((tgt, tidx) => {
-                          console.log(tgt)
+                          //if(solveSet.queue.length) return
+                          //console.log(tgt)
                           switch(tgt.status){
                             case 'wrong piece':
                               var tStage, ct = 0
                               ct += set[4].x && tgt.curPos[0] == set[4].x ? 1 : 0
                               ct += set[4].y && tgt.curPos[1] == set[4].y ? 1 : 0
                               ct += set[4].z && tgt.curPos[2] == set[4].z ? 1 : 0
-                              //if(Rn() < .5 && !solveSet.queue.length)
-                                  DoMove(tgt, ct, tidx)
-                              /*
                               switch(tidx){
                                 case 0: 
                                   tStage='upper left corner'
                                   if(ct){
-                                    DoMove(tgt)
+                                    console.log(tStage, ' -> needed piece is on working face, in wrong spot')
+                                    DoMove(tgt, ct, tidx)
                                   }else{
                                     var rel = RelativeFace(wf, 'back')
-                                    //console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    DoMove(tgt, ct, tidx)
                                   }
                                 break
                                 case 1:
                                   tStage='upper right corner'
                                   if(ct){
                                     console.log(tStage, ' -> needed piece is on working face, in wrong spot')
-                                    DoMove(tgt)
+                                    DoMove(tgt, ct, tidx)
                                   }else{
                                     var rel = RelativeFace(wf, 'back')
-                                    //console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    DoMove(tgt, ct, tidx)
                                   }
                                 break
                                 case 2:
                                   tStage='lower left corner'
                                   if(ct){
                                     console.log(tStage, ' -> needed piece is on working face, in wrong spot')
-                                    DoMove(tgt)
+                                    DoMove(tgt, ct, tidx)
                                   }else{
                                     var rel = RelativeFace(wf, 'back')
-                                    //console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    DoMove(tgt, ct, tidx)
                                   }
                                 break
                                 case 3:
                                   tStage='lower right corner'
                                   if(ct){
                                     console.log(tStage, ' -> needed piece is on working face, in wrong spot')
-                                    DoMove(tgt)
+                                    DoMove(tgt, ct, tidx)
                                   }else{
                                     var rel = RelativeFace(wf, 'back')
-                                    //console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    DoMove(tgt, ct, tidx)
                                   }
                                 break
-                              }*/
+                              }
                             break
                             case 'right piece, wrong ori':
-                              console.log('doing move')
-                              switch(tidx){
-                                case 0: 
-                                  tStage='upper left corner'
-                                  console.log('...', tStage)
-                                  ;([
-                                    {f: 'left', d: -1},
-                                    {f: 'back', d: -1},
-                                    {f: 'back', d: -1},
-                                    {f: 'left', d: 1},
-                                    {f: 'top',  d: 1},
-                                    {f: 'back', d: -1},
-                                    {f: 'back', d: -1},
-                                    {f: 'top',  d: -1},
-                                  ]).map(ts=>solveSet.queue.push([
-                                    RelativeFace(wf, ts.f), ts.d
-                                  ]))
-                                break
-                                case 1:
-                                  tStage='upper right corner'
-                                  console.log('...', tStage)
-                                  ;([
-                                    {f: 'top',  d: -1},
-                                    {f: 'back',  d: -1},
-                                    {f: 'back',  d: -1},
-                                    {f: 'top',   d: 1},
-                                    {f: 'right', d: 1},
-                                    {f: 'back',  d: -1},
-                                    {f: 'back',  d: -1},
-                                    {f: 'right', d: -1},
-                                  ]).map(ts=>solveSet.queue.push([
-                                    RelativeFace(wf, ts.f), ts.d
-                                  ]))
-                                break
-                                case 2:
-                                  tStage='lower left corner'
-                                  console.log('...', tStage)
-                                  ;([
-                                    {f: 'right',  d: -1},
-                                    {f: 'back',   d: -1},
-                                    {f: 'back',   d: -1},
-                                    {f: 'right',  d: 1},
-                                    {f: 'bottom', d: 1},
-                                    {f: 'back',   d: -1},
-                                    {f: 'back',   d: -1},
-                                    {f: 'bottom', d: -1},
-                                  ]).map(ts=>solveSet.queue.push([
-                                    RelativeFace(wf, ts.f), ts.d
-                                  ]))
-                                break
-                                case 3:
-                                  tStage='lower right corner'
-                                  console.log('...', tStage)
-                                  ;([
-                                    {f: 'bottom', d: -1},
-                                    {f: 'back',   d: -1},
-                                    {f: 'back',   d: -1},
-                                    {f: 'bottom', d: 1},
-                                    {f: 'left',   d: 1},
-                                    {f: 'back',   d: -1},
-                                    {f: 'back',   d: -1},
-                                    {f: 'left',   d: -1},
-                                  ]).map(ts=>solveSet.queue.push([
-                                    RelativeFace(wf, ts.f), ts.d
-                                  ]))
-                                break
+                              if(1||!solveSet.tgtColors.filter(v=>v.status == 'wrong piece').length){
+                                console.log('wrong ori...')
+                                switch(tidx){
+                                  case 0:
+                                    tStage='upper left corner'
+                                    console.log('...', tStage)
+                                    ;([
+                                      {f: 'top', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'top', d: -1},
+                                      {f: 'back', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'top', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'top', d: -1},
+                                    ]).map(ts=>solveSet.queue.push([
+                                      RelativeFace(wf, ts.f), ts.d
+                                    ]))
+                                  break
+                                  case 1: 
+                                    tStage='upper right corner'
+                                    console.log('...', tStage)
+                                    ;([
+                                      {f: 'right', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'right', d: -1},
+                                      {f: 'back', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'right', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'right', d: -1},
+                                    ]).map(ts=>solveSet.queue.push([
+                                      RelativeFace(wf, ts.f), ts.d
+                                    ]))
+                                  break
+                                  case 2:
+                                    tStage='lower left corner'
+                                    console.log('...', tStage)
+                                    ;([
+                                      {f: 'left', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'left', d: -1},
+                                      {f: 'back', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'left', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'left', d: -1},
+                                    ]).map(ts=>solveSet.queue.push([
+                                      RelativeFace(wf, ts.f), ts.d
+                                    ]))
+                                  break
+                                  case 3:
+                                    tStage='lower right corner'
+                                    console.log('...', tStage)
+                                    ;([
+                                      {f: 'bottom', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'bottom', d: -1},
+                                      {f: 'back', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'bottom', d: 1},
+                                      {f: 'back', d: 1},
+                                      {f: 'bottom', d: -1},
+                                    ]).map(ts=>solveSet.queue.push([
+                                      RelativeFace(wf, ts.f), ts.d
+                                    ]))
+                                  break
+                                }
                               }
                               //console.log(tStage, ' -> needed piece is in the right spot, but wrong ori')
                             break
@@ -2046,17 +2058,124 @@
                           solveSet.stageProgress++
                         }else{
                           console.log('reached dead zone')
-                          //curMove = []
+                          curMove = []
                         }
                       }
                     }
                   }
                 break
                 case 5:
-                  if(phase == 1 &&
-                     solveSet.queue.length == 0 &&
-                     solveSet.memo.length){
-                     console.log('ready for next step')
+                  if(phase == 1){
+                    if(solveSet.memo.length && solveSet.memo[0] == -1){
+                      solveSet.memo = []
+                      solveSet.queue = []
+                      solveSet.matching = []
+                      var relFaces =  [
+                        tgtOriFromFace(RelativeFace(wf, 'left')),
+                        tgtOriFromFace(RelativeFace(wf, 'top')),
+                        tgtOriFromFace(RelativeFace(wf, 'right')),
+                        tgtOriFromFace(RelativeFace(wf, 'bottom')),
+                      ]
+                      
+                      
+                      
+                      
+          //case 'back':
+          //case 'top':
+          //case 'right':
+          //case 'front':
+          //case 'bottom':
+          //case 'left':
+                      
+                      
+                      
+                      relFaces.forEach(fc => {
+                        switch(fc){
+                          case 0:
+                            switch(wf){
+                              case 'top': case 'bottom':
+                                solveSet.tgts.push({[1,0,1], [-1,0,1]})
+                              break
+                              case 'left': case 'right':
+                                solveSet.tgts.push({[0,1,1], [0,-1,1]})
+                              break
+                            }
+                          break
+                          case 1:
+                            switch(wf){
+                              case 'back': case 'front':
+                                solveSet.tgts.push({[1,1,0], [-1,1,0]})
+                              break
+                              case 'right': case 'left':
+                                solveSet.tgts.push({[0,1,-1], [0,1,1]})
+                              break
+                            }
+                          break
+                          case 2:
+                            switch(wf){
+                              case 'top':
+                              case 'bottom':
+                                solveSet.tgts.push({[1,0,-1], [1,0,1]})
+                              break
+                              case 'front':
+                              case 'back':
+                                solveSet.tgts.push({[1,1,0], [1,-1,0]})
+                              break
+                            }
+                          break
+                          case 3:
+                            switch(wf){
+                              case 'top':
+                              case 'bottom':
+                                solveSet.tgts.push({[-1,0,-1], [1,0,-1]})
+                              break
+                              case 'right':
+                              case 'left':
+                                solveSet.tgts.push({[0,1,-1], [0,-1,-1]})
+                              break
+                            }
+                          break
+                          case 4:
+                            switch(wf){
+                              case 'front':
+                              case 'back':
+                                solveSet.tgts.push({[-1,-1,0], [1,-1,0]})
+                              break
+                              case 'right':
+                              case 'left':
+                                solveSet.tgts.push({[0,-1,1], [0,-1,-1]})
+                              break
+                            }
+                          break
+                          case 5:
+                            switch(wf){
+                              case 'top':
+                              case 'bottom':
+                                solveSet.tgts.push({[-1,0,-1], [-1,0,1]})
+                              break
+                              case 'back':
+                              case 'front':
+                                solveSet.tgts.push({[-1,1,0], [-1,-1,0]})
+                              break
+                            }
+                          break
+                        }
+                      })
+                    }
+                    if(solveSet.matching.length < 4 &&
+                      solveSet.queue.length == 0){
+
+                        var sidx = tgtOris.filter(v=>v.name==wf)[0].oid
+                        var newData = GeneratesolveSet(identities)
+                        solveSet.faces = newData.faces
+                        var set = solveSet.faces[sidx].set
+                        solveSet.matching = []
+                        solveSet.tgtColors = newData.tgtColors
+
+                        console.log('wf', wf)
+                        console.log(solveSet)
+
+                    }
                   }
                 break
               }
@@ -2463,14 +2582,16 @@
         if(!numlock){
           document.body.style.cursor = 'pointer'
         }
+        
+        phase = Math.round(phase*1e4)/1e4
       }
       
       if(1) setTimeout(()=>{
         Shuffle(true)
         mouseButtonHasBeenClicked = true
         setTimeout(()=>{
-          //SolveCube(true)
-        }, 3000)
+          SolveCube(true)
+        }, 3100)
       }, 0)
       
       window.onload = () => loaded = true
