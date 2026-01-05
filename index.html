@@ -258,6 +258,7 @@
 
       var shuffleTTL = 0
       const Shuffle = (override = false) => {
+        defaultSpeed = .5
         if(override || confirm('\n\nShuffle?\n\nare you sure?')){
           setTimeout(()=>{
             if(shuffleTTL < renderer.t && !solving) {
@@ -299,8 +300,10 @@
       var comp0, comp1, comp2, comp3, comp4, comp5, comp6
       var a, b, theta, phase
 
-      var defaultSpeed = .5, speed
+      var defaultSpeed = .125, speed
+      var baseDefaultSpeed = defaultSpeed
       const Shift = ( face, dir=1, trial=false, ids = [], turns=1 ) => {
+        if(typeof face == 'undefined') return
         var t_rubikShape
         var t_identities
         if(trial){
@@ -959,7 +962,7 @@
       c.focus()
       c.onkeydown = e => {
         keyHasBeenPressed = true
-        console.log(e.keyCode)
+        //console.log(e.keyCode)
         //numlock = e.getModifierState('NumLock')
         keys[e.keyCode] = true
       }
@@ -1012,7 +1015,7 @@
         numlock = true
         orbitYaw = 0
         orbitPitch = 0
-        doOscillate = true
+        doOscillate = false
         peekView = ''
         camPitch = 0
         camYaw = 0
@@ -1169,7 +1172,7 @@
       var defaultOscy = Math.PI/5
 
       var buttons = [
-        {
+        /*{
           name: 'do test maneuver',
           style: 'toggle',
           text: 'do test maneuver',
@@ -1179,7 +1182,7 @@
           highlightColor: '#4f4',
           script: 'DoManeuver()',
           enabled: true,
-        },
+        }, */
         {
           name: 'View Rubiks Guide',
           style: 'toggle',
@@ -1552,9 +1555,20 @@
       }
       
       const ShowGuide = () => {
+        var guideURL = 'https://srmcgann.github.io/objs/rubik/guide.pdf'
+        /*
         ShowOverlay()
         var el = document.querySelector('#guideFrame')
-        el.src = 'https://srmcgann.github.io/objs/rubik/guide.pdf'
+        el.src = guideURL
+        */
+        var el = document.createElement('a')
+        el.href = guideURL
+        el.target = '_blank'
+        el.style.position = 'absolute'
+        el.style.opacity = .001
+        document.body.appendChild(el)
+        el.click()
+        el.remove()
       }
       
       const AnalyzeFace = face => {
@@ -1581,6 +1595,9 @@
             case 0:
               switch(solveSet.stageProgress){
                 case 0:
+                  defaultSpeed = .5
+                  doOscillate = true
+                  buttons.filter(v=>v.name == 'oscillation')[0].clickState = true
                   solveSet.tgts = [1, 3, 5, 7]
                   // pick side with "most complete cross", go there
                   solveSet = GeneratesolveSet(identities)
@@ -1609,7 +1626,7 @@
                   //tgtFace = 2
                   var faceName = solveSet.faces[tgtFace].face
                   solveSet.workingFace = faceName
-                  console.log(`chosen face: ${faceName}`)
+                  //console.log(`chosen face: ${faceName}`)
                   
                   solveSet.faces.filter(v=>v.face==faceName)[0].set.map((id, idx) => {
                     if(
@@ -1690,7 +1707,7 @@
                         RotateFace(sugg.dir)
                       }else{
                         if(mind<4 && phase == 1){
-                          curCursorView = Rn() < .65 ? 
+                          curCursorView = Rn() < .5 ? 
                             selMoves[selMoves.length * Rn() | 0] : wf
                           RotateFace(-1)
                         }
@@ -1745,8 +1762,8 @@
                       solveSet.queue = []
                       solveSet.memo = []
                       var diff = Math.abs(solveSet.matching[1]-solveSet.matching[0])
-                      console.log('diff', diff)
-                      console.log('matching', solveSet.matching)
+                      //console.log('diff', diff)
+                      //console.log('matching', solveSet.matching)
                       if((diff == 2 && solveSet.matching[0]==3) || diff == 6){
                         if(solveSet.matching[0] == 1){
                           var tgtFace = RelativeFace( wf, 'left')
@@ -1766,7 +1783,7 @@
                         solveSet.memo = [1]
                       }else{
                         solveSet.memo = [2]
-                        console.log('2 match, but are not opposite')
+                        //console.log('2 match, but are not opposite')
                       }
                     }else{
                       if(solveSet.queue.length){
@@ -1775,13 +1792,13 @@
                         RotateFace(mv.dir)
                       }else{
                         if(solveSet.matching.length == 4) {
-                          console.log('4 match!')
+                          //console.log('4 match!')
                           solveSet.memo = [-1]
                           solveSet.stageProgress++
                         }else{
                           switch(solveSet.memo[0]){
                             case -1:
-                              console.log('4 match!')
+                              //console.log('4 match!')
                               solveSet.stageProgress++
                               solveSet.matching = solveSet.tgts
                             break
@@ -1993,7 +2010,7 @@
                           break
                         }
                       })
-                      console.log('tgtColors', solveSet.tgtColors)
+                      //console.log('tgtColors', solveSet.tgtColors)
                       //console.log(set)
                       const DoMove = (tgt, onFace, tidx) => {
                         var coords = onFace ? tgt.curPos : [
@@ -2034,44 +2051,44 @@
                                 case 0: 
                                   tStage='upper left corner'
                                   if(ct){
-                                    console.log(tStage, ' -> needed piece is on working face, in wrong spot')
+                                    //console.log(tStage, ' -> needed piece is on working face, in wrong spot')
                                     DoMove(tgt, ct, tidx)
                                   }else{
                                     var rel = RelativeFace(wf, 'back')
-                                    console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    //console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
                                     DoMove(tgt, ct, tidx)
                                   }
                                 break
                                 case 1:
                                   tStage='upper right corner'
                                   if(ct){
-                                    console.log(tStage, ' -> needed piece is on working face, in wrong spot')
+                                    //console.log(tStage, ' -> needed piece is on working face, in wrong spot')
                                     DoMove(tgt, ct, tidx)
                                   }else{
                                     var rel = RelativeFace(wf, 'back')
-                                    console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    //console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
                                     DoMove(tgt, ct, tidx)
                                   }
                                 break
                                 case 2:
                                   tStage='lower left corner'
                                   if(ct){
-                                    console.log(tStage, ' -> needed piece is on working face, in wrong spot')
+                                    //console.log(tStage, ' -> needed piece is on working face, in wrong spot')
                                     DoMove(tgt, ct, tidx)
                                   }else{
                                     var rel = RelativeFace(wf, 'back')
-                                    console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    //console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
                                     DoMove(tgt, ct, tidx)
                                   }
                                 break
                                 case 3:
                                   tStage='lower right corner'
                                   if(ct){
-                                    console.log(tStage, ' -> needed piece is on working face, in wrong spot')
+                                    //console.log(tStage, ' -> needed piece is on working face, in wrong spot')
                                     DoMove(tgt, ct, tidx)
                                   }else{
                                     var rel = RelativeFace(wf, 'back')
-                                    console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
+                                    //console.log(tStage, ` -> needed piece is on rel-back face (${rel})`)
                                     DoMove(tgt, ct, tidx)
                                   }
                                 break
@@ -2079,11 +2096,11 @@
                             break
                             case 'right piece, wrong ori':
                               if(1||!solveSet.tgtColors.filter(v=>v.status == 'wrong piece').length){
-                                console.log('wrong ori...')
+                                //console.log('wrong ori...')
                                 switch(tidx){
                                   case 0:
                                     tStage='upper left corner'
-                                    console.log('...', tStage)
+                                    //console.log('...', tStage)
                                     ;([
                                       {f: 'top', d: 1},
                                       {f: 'back', d: 1},
@@ -2099,7 +2116,7 @@
                                   break
                                   case 1: 
                                     tStage='upper right corner'
-                                    console.log('...', tStage)
+                                    //console.log('...', tStage)
                                     ;([
                                       {f: 'right', d: 1},
                                       {f: 'back', d: 1},
@@ -2115,7 +2132,7 @@
                                   break
                                   case 2:
                                     tStage='lower left corner'
-                                    console.log('...', tStage)
+                                    //console.log('...', tStage)
                                     ;([
                                       {f: 'left', d: 1},
                                       {f: 'back', d: 1},
@@ -2131,7 +2148,7 @@
                                   break
                                   case 3:
                                     tStage='lower right corner'
-                                    console.log('...', tStage)
+                                    //console.log('...', tStage)
                                     ;([
                                       {f: 'bottom', d: 1},
                                       {f: 'back', d: 1},
@@ -2167,16 +2184,16 @@
                           }
                         })
                       }else{
-                        console.log('4 match!')
+                        //console.log('4 match!')
                         solveSet.memo = [-1]
                         solveSet.stageProgress++
                       }
                       
                     }else{
-                      console.log('reached queue processing')
+                      //console.log('reached queue processing')
                       if(solveSet.queue.length){
                         var mv = solveSet.queue.shift()
-                        console.log(mv)
+                        //console.log(mv)
                         curCursorView = mv[0]
                         RotateFace(mv[1])
                       }
@@ -2314,7 +2331,7 @@
                       }
                       solveSet.tgts = a
                       
-                      console.log(solveSet)
+                      //console.log(solveSet)
                     }
                     if(solveSet.queue.length == 0){ 
                       var newData = GeneratesolveSet(identities)
@@ -2387,14 +2404,14 @@
                       }
                       
                       if(solveSet.tgtColors.filter(v=>v.complete).length==4){
-                        console.log('4 match!')
+                        //console.log('4 match!')
                         solveSet.memo = [-1]
                         solveSet.stageProgress++
                       }else{
                         solveSet.tgtColors.map((tgt, tidx) => {
                           tgt.curPos = GetCurPos(tgt.pair)
                           tgt.curInvf = GetInvolvedFaces(tgt.curPos)
-                          console.log(tgt.status, tgt)
+                          //console.log(tgt.status, tgt)
                           switch(tgt.status){
                             case 'correct':
                             break
@@ -2415,7 +2432,7 @@
                                 
                                 var mode = ComboLookup(rotFace, wf, tFront)
                                 
-                                console.log('mode/rotFace/wf/tFront/', mode, rotFace, wf, tFront)
+                                //console.log('mode/rotFace/wf/tFront/', mode, rotFace, wf, tFront)
 
                                 ;([
                                   {f: tgt.relBack, d: mode},
@@ -2448,7 +2465,7 @@
                               
                               var mode = ComboLookup(commonSide, wf, tFront)
                               
-                              console.log('mode/rotFace/wf/tFront/', mode, commonSide, wf, tFront)                                
+                              //console.log('mode/rotFace/wf/tFront/', mode, commonSide, wf, tFront)                                
                               ;([
                                 {f: tgt.relBack, d: mode},
                                 {f: tFront, d: mode},
@@ -2466,7 +2483,7 @@
                     }
                     if(solveSet.queue.length){
                       var mv = solveSet.queue.shift()
-                      console.log(mv)
+                      //console.log(mv)
                       curCursorView = mv[0]
                       RotateFace(mv[1])
                     }
@@ -2599,7 +2616,7 @@
                           ]).map(ts=>solveSet.queue.push([ts.f, ts.d]))
                         break
                         case 4:
-                          console.log('4 match!')
+                          //console.log('4 match!')
                           solveSet.memo = [-1]
                           solveSet.stageProgress++
                         break
@@ -2607,7 +2624,7 @@
                     }
                     if(solveSet.queue.length){
                       var mv = solveSet.queue.shift()
-                      console.log(mv)
+                      //console.log(mv)
                       curCursorView = mv[0]
                       RotateFace(mv[1])
                     }
@@ -2744,24 +2761,26 @@
                           ]).map(ts=>solveSet.queue.push([ts.f, ts.d]))
                         break
                         case 9:
-                          console.log('4 match!')
+                          //console.log('4 match!')
                           solveSet.memo = [-1]
+                          solveSet.memoCt = 0
                           solveSet.stageProgress++
                         break
                       }
                     }
                     if(solveSet.queue.length){
                       var mv = solveSet.queue.shift()
-                      console.log(mv)
+                      //console.log(mv)
                       curCursorView = mv[0]
                       RotateFace(mv[1])
                     }
                   }
                 break
                 case 8:
+                  var moved = false
                   if(phase == 1){
                     if(solveSet.queue.length == 0){
-                      defaultSpeed = .1
+                      defaultSpeed = .25
                       console.log('phase 8')
                       var sidx = tgtOris.filter(v=>v.name==wf)[0].oid
                       var newData = GeneratesolveSet(identities)
@@ -2782,29 +2801,46 @@
                           }
                         })
                       })
-                      if(counts.filter(v=>v==9).length == 6 ||
+                      var override = false
+                      if(set.filter(el=>el.colorName == set[4].colorName).length == 9 && counts.filter(v=>v==9).length == 6 ||
                          counts.filter(v=>v==8).length > 2 ){
                         solveSet.memo = [-1]
+                        delete solveSet?.tBack
+                        delete solveSet?.tFront
                         solveSet.stageProgress++
                       }else{
-                        if(set.filter(el=>el.colorName == set[4].colorName).length == 9 && counts.filter(v=>v==8).length < 3 &&
-                        solveSet.memo != -2){
-                          solveSet.memo = -2
-                          ;([
-                            {f: backFace, d: 1},
-                          ]).map(ts=>solveSet.queue.push([ts.f, ts.d]))
+                        if(!counts.filter(v=>v==8).length &&
+                           set.filter(el=>el.colorName == set[4].colorName).length == 9 && solveSet.memo != -2){
+                           if(solveSet.memoCt < 4){
+                            solveSet.memo = -2
+                            solveSet.memoCt++
+                            ;([
+                              {f: backFace, d: 1},
+                            ]).map(ts=>solveSet.queue.push([ts.f, ts.d]))
+                          }else{
+                            override = true
+                          }
                         }
-                        if(solveSet.memo == -2){
+                        if(override || (!solveSet.queue.length &&
+                          counts.filter((v,i)=>v==8).length)){
+                          if(Rn() < .2){
+                            ;([
+                              {f: backFace, d: 1},
+                            ]).map(ts=>solveSet.queue.push([ts.f, ts.d]))
+                          }
                           solveSet.memo = []
-                        }
-                        if(!solveSet.queue.length && counts.filter(v=>v==8).length){
-                          if(typeof solveSet?.tFront == 'undefined'){
+                          solveSet.memoCt = 0
+                          delete solveSet.tBack
+                          counts.forEach((v, i) => {
+                            if(v==8) solveSet.tBack = tgtOris[i].name
+                          })
+                          if(typeof solveSet?.tBack == 'undefined'){
                             counts.forEach((v, i) => {
-                              if(v==8) solveSet.tFront = tgtOris[i].name
+                              if(v==7) solveSet.tBack = tgtOris[i].name
                             })
                           }
-                          var tFront = solveSet.tFront
-                          var tBack = RelativeFace(tFront, 'back')
+                          var tBack = solveSet.tBack
+                          var tFront = RelativeFace(tBack, 'back')
                           var rotFace
                           switch(wf){
                             case 'back':
@@ -2868,38 +2904,56 @@
                             {f: tBack, d: 1},
                             {f: tBack, d: 1},
                             {f: rotFace, d: 1},
+                            {f: rotFace, d: 1},
                             {f: backFace, d: -1},
                           ]).map(ts=>solveSet.queue.push([ts.f, ts.d]))
                         }
+                        if(!solveSet.queue.length){
+                          solveSet.memo = []
+                        }
                       }
                     }
-                    if(solveSet.queue.length){
+                    if(solveSet.queue.length && !moved){
+                      moved = true
                       var mv = solveSet.queue.shift()
-                      if(mv[0]){
-                        console.log(mv)
-                        curCursorView = mv[0]
-                        RotateFace(mv[1])
-                      }
+                      //console.log(mv)
+                      curCursorView = mv[0]
+                      RotateFace(mv[1])
                     }
                   }
                 break
                 case 9:
+                  var moved = false
+                  console.log(solveSet)
                   if(phase == 1){
                     if(solveSet.queue.length == 0){
                       defaultSpeed = .1
                       console.log('phase 9')
+                      
+                      var sidx = tgtOris.filter(v=>v.name==wf)[0].oid
                       var newData = GeneratesolveSet(identities)
+                      solveSet.faces = newData.faces
+                      var set = solveSet.faces[sidx].set
                       solveSet.faces = newData.faces
                       solveSet.matching = []
                       solveSet.tgtColors = []
                       
                       var backFace = RelativeFace(wf, 'back')
 
+                      var counts = Array(6).fill(0)
+                      solveSet.faces.forEach((face, fidx) => {
+                        face.set.forEach(el => {
+                          if(el.colorName == face.set[4].colorName) {
+                            counts[fidx]++
+                          }
+                        })
+                      })
                       if(counts.filter(v=>v==9).length == 6){
                         solveSet.memo = [-1]
+                        solveSet.queue = []
                         solveSet.stageProgress++
                       }else{
-                        if(typeof solveSet?.tBack == 'undefined'){
+                        if(1||typeof solveSet?.tBack == 'undefined'){
                           switch(wf){
                             case 'back':
                               solveSet.tgtFaces = ['top', 'left', 'bottom', 'right']
@@ -2922,18 +2976,17 @@
                           }
                           solveSet.tgtFaces.forEach(fc => {
                             if(solveSet.faces.filter(fc2 => {
-                                 return fc2.face == fc && fc2.set.filter(el=>{
+                                 return fc2.face == fc && (fc2.set.filter(el=>{
                                    return el.colorName == fc2.set[4].colorName
-                                })
+                                }).length == 9)
                               }).length){
                               solveSet.tBack = fc
                             }
                           })
                           solveSet.tFront = RelativeFace(solveSet.tBack, 'back')
-                          var tRight, tLeft
                           switch(wf){
                             case 'back':
-                              switch(tFront){
+                              switch(solveSet.tFront){
                                 case 'top':
                                   solveSet.tRight = 'left'
                                   solveSet.tLeft = 'right'
@@ -2953,7 +3006,7 @@
                               }
                             break
                             case 'top':
-                              switch(tFront){
+                              switch(solveSet.tFront){
                                 case 'back':
                                   solveSet.tRight = 'right'
                                   solveSet.tLeft = 'left'
@@ -2973,7 +3026,7 @@
                               }
                             break
                             case 'right':
-                              switch(tFront){
+                              switch(solveSet.tFront){
                                 case 'top':
                                   solveSet.tRight = 'back'
                                   solveSet.tLeft = 'front'
@@ -2993,7 +3046,7 @@
                               }
                             break
                             case 'front':
-                              switch(tFront){
+                              switch(solveSet.tFront){
                                 case 'top':
                                   solveSet.tRight = 'right'
                                   solveSet.tLeft = 'left'
@@ -3013,7 +3066,7 @@
                               }
                             break
                             case 'bottom':
-                              switch(tFront){
+                              switch(solveSet.tFront){
                                 case 'front':
                                   solveSet.tRight = 'right'
                                   solveSet.tLeft = 'left'
@@ -3033,7 +3086,7 @@
                               }
                             break
                             case 'left':
-                              switch(tFront){
+                              switch(solveSet.tFront){
                                 case 'top':
                                   solveSet.tRight = 'front'
                                   solveSet.tLeft = 'back'
@@ -3070,15 +3123,41 @@
                           {f: tRight, d: 1},
                           {f: backFace, d: 1},
                           {f: tFront, d: 1},
+                          {f: tFront, d: 1},
                         ]).map(ts=>solveSet.queue.push([ts.f, ts.d]))
                       }
                     }
-                    if(solveSet.queue.length){
-                      var mv = solveSet.queue.shift()
-                      console.log(mv)
-                      curCursorView = mv[0]
-                      RotateFace(mv[1])
+                    if(!moved && solveSet.queue.length){
+                    
+                      var newData = GeneratesolveSet(identities)
+                      solveSet.faces = newData.faces
+                      var counts = Array(6).fill(0)
+                      solveSet.faces.forEach((face, fidx) => {
+                        face.set.forEach(el => {
+                          if(el.colorName == face.set[4].colorName) {
+                            counts[fidx]++
+                          }
+                        })
+                      })
+                      if(counts.filter(v=>v==9).length == 6){
+                        solveSet.memo = [-1]
+                        solveSet.queue = []
+                        solveSet.stageProgress++
+                      }else{                    
+                        moved = true
+                        var mv = solveSet.queue.shift()
+                        console.log(mv)
+                        curCursorView = mv[0]
+                        RotateFace(mv[1])
+                      }
                     }
+                  }
+                break
+                case 10:
+                  if(phase == 1){
+                    console.log('CUBE IS SOLVED NAO! KTHX')
+                    ResetViews()
+                    solving = false
                   }
                 break
               }
@@ -3126,6 +3205,8 @@
           ctx.fillText(str, c.width/2, 50 + fs)
           var str = '|' + ('-').repeat((t*20|0)%10) + '---------' + ('-').repeat((t*20|0)%10) + '|'
           ctx.fillText(str, c.width/2, c.height - 250 + fs)
+        }else if(!solving){
+          defaultSpeed = baseDefaultSpeed
         }
 
         if(renderer.cameraMode != 'fps'){
@@ -3428,7 +3509,7 @@
         
         if(solving) {
           var str = solveSet.faces.map((face, fidx) => {
-            face.set.map((id, idx) => {
+            if(0)face.set.map((id, idx) => {
               var ar = Coordinates.GetShaderCoord(id.rx, id.ry, id.rz,
                                         rubikShape, renderer)
               if(ar && FaceIsVisible(id.posId)){
@@ -3489,6 +3570,7 @@
         phase = Math.round(phase*1e4)/1e4
       }
       
+      /*
       if(1) setTimeout(()=>{
         Shuffle(true)
         mouseButtonHasBeenClicked = true
@@ -3496,6 +3578,7 @@
           SolveCube(true)
         }, 3100)
       }, 0)
+      */
       
       window.onload = () => loaded = true
 
